@@ -1,16 +1,27 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 
 const AuthContext = createContext();
 
-// Proveedor de contexto de autenticación
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const login = () => setIsAuthenticated(true);
-  const logout = () => setIsAuthenticated(false);
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthenticated(!!user); // Si hay un usuario, está autenticado
+    });
 
-  return <AuthContext.Provider value={{ isAuthenticated, login, logout }}>{children}</AuthContext.Provider>;
+    return () => unsubscribe(); // Limpia el listener
+  }, []);
+
+  const logout = async () => {
+    const auth = getAuth();
+    await signOut(auth);
+    setIsAuthenticated(false);
+  };
+
+  return <AuthContext.Provider value={{ isAuthenticated, logout }}>{children}</AuthContext.Provider>;
 };
 
-// Hook personalizado para usar el contexto
 export const useAuth = () => useContext(AuthContext);

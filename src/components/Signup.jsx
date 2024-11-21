@@ -1,20 +1,20 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { Password } from "primereact/password";
 import { Card } from "primereact/card";
 import { Message } from "primereact/message";
-import { Link, useNavigate } from "react-router-dom";
-import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { useAuth } from "../auth/AuthContext";
+import { Divider } from "primereact/divider";
+import { getAuth, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
-export const Login = () => {
+export const Signup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate(); // Hook para redirigir
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,34 +27,42 @@ export const Login = () => {
     const auth = getAuth();
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log("Usuario autenticado:", email);
+      // Crear usuario con Firebase Authentication
+      await createUserWithEmailAndPassword(auth, email, password);
+      setSuccessMessage("Cuenta creada exitosamente.");
       setErrorMessage("");
-      navigate("/"); // Redirigir al Dashboard
+
+      // Redirigir al dashboard
+      navigate("/");
     } catch (error) {
-      console.error("Error iniciando sesión:", error.message);
-      setErrorMessage("Credenciales incorrectas. Inténtalo nuevamente.");
+      // Manejar errores
+      setErrorMessage(error.message);
+      setSuccessMessage("");
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSignup = async () => {
     const auth = getAuth();
     const provider = new GoogleAuthProvider();
 
     try {
+      // Registrar usuario con Google
       await signInWithPopup(auth, provider);
-      console.log("Usuario autenticado con Google");
+      setSuccessMessage("Cuenta creada con Google exitosamente.");
       setErrorMessage("");
-      navigate("/"); // Redirigir al Dashboard
+
+      // Redirigir al dashboard
+      navigate("/");
     } catch (error) {
-      console.error("Error iniciando sesión con Google:", error.message);
-      setErrorMessage("Error al iniciar sesión con Google. Inténtalo nuevamente.");
+      // Manejar errores
+      setErrorMessage(error.message);
+      setSuccessMessage("");
     }
   };
 
   return (
     <div className="flex justify-content-center">
-      <Card title="Iniciar Sesión" style={{ width: "25rem" }}>
+      <Card title="Crear Cuenta" style={{ width: "25rem" }}>
         <form onSubmit={handleSubmit} className="p-fluid">
           <div className="field">
             <span className="p-float-label p-input-icon-right">
@@ -65,22 +73,20 @@ export const Login = () => {
           </div>
           <div className="field mt-4">
             <span className="p-float-label">
-              <Password id="password" value={password} onChange={(e) => setPassword(e.target.value)} feedback={false} toggleMask />
+              <Password id="password" value={password} onChange={(e) => setPassword(e.target.value)} toggleMask />
               <label htmlFor="password">Contraseña</label>
             </span>
           </div>
           {errorMessage && <Message severity="error" text={errorMessage} className="mb-3" />}
-          <Button type="submit" label="Iniciar Sesión" className="mt-4" />
+          {successMessage && <Message severity="success" text={successMessage} className="mb-3" />}
+          <Button type="submit" label="Crear Cuenta" className="mt-4" />
         </form>
+        <Divider align="center">
+          <span className="p-tag">O</span>
+        </Divider>
 
-        <div className="mt-4 text-center">
-          <p>
-            ¿No tienes una cuenta? <Link to="/signup">Regístrate aquí</Link>
-          </p>
-        </div>
-
-        <div className="mt-4">
-          <Button label="Iniciar sesión con Google" icon="pi pi-google" className="p-button-secondary w-full" onClick={handleGoogleLogin} />
+        <div className="field mt-4">
+          <Button label="Registrarse con Google" icon="pi pi-google" className="p-button-secondary mt-4" onClick={handleGoogleSignup} />
         </div>
       </Card>
     </div>

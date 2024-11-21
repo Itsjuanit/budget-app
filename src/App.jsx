@@ -5,6 +5,7 @@ import { Dashboard } from "./components/Dashboard";
 import { TransactionForm } from "./components/TransactionForm";
 import { MonthlyReports } from "./components/MonthlyReports";
 import { Login } from "./components/Login";
+import { Signup } from "./components/Signup"; // Importar el formulario de registro
 import { TabView, TabPanel } from "primereact/tabview";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 
@@ -20,21 +21,26 @@ function App() {
       <PrimeReactProvider>
         <Router>
           <div className="min-h-screen bg-gray-50">
+            {/* Barra de navegación */}
             <nav className="bg-white shadow-md">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16 items-center">
                   <div className="flex items-center">
                     <span className="text-xl font-bold text-gray-800">Paga Todo</span>
-                    <AuthActions />
                   </div>
+                  <AuthActions />
                 </div>
               </div>
             </nav>
 
+            {/* Contenido Principal */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               <Routes>
                 {/* Ruta de Login */}
                 <Route path="/login" element={<Login />} />
+
+                {/* Ruta de Registro */}
+                <Route path="/signup" element={<Signup />} />
 
                 {/* Rutas protegidas */}
                 <Route
@@ -48,7 +54,6 @@ function App() {
                               <h2 className="text-2xl font-semibold mb-4">Transacciones</h2>
                               <TransactionForm />
                             </section>
-
                             <section>
                               <Dashboard />
                             </section>
@@ -74,7 +79,7 @@ function App() {
   );
 }
 
-// Acciones de autenticación (Cerrar sesión)
+// Acciones de autenticación en la barra de navegación
 const AuthActions = () => {
   const { isAuthenticated, logout } = useAuth();
 
