@@ -9,10 +9,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setIsAuthenticated(!!user); // Si hay un usuario, está autenticado
+      setIsAuthenticated(!!user);
     });
 
-    return () => unsubscribe(); // Limpia el listener
+    return () => unsubscribe();
   }, []);
 
   const logout = async () => {

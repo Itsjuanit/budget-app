@@ -5,8 +5,9 @@ import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { useFinanceStore } from "../store/useFinanceStore";
-import { db } from "@/firebaseConfig"; // Ruta relativa
-import { collection, addDoc } from "firebase/firestore"; // Métodos Firestore
+import { db } from "@/firebaseConfig";
+import { collection, addDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 export const TransactionForm = () => {
   const { addTransaction } = useFinanceStore();
@@ -49,30 +50,34 @@ export const TransactionForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user) {
+      console.error("Usuario no autenticado");
+      return;
+    }
+
     if (amount && category && date) {
       const transaction = {
+        userId: user.uid,
         type,
         amount,
         category,
         description,
-        date: date.toISOString(), // Almacena la fecha como string ISO
+        date: date.toISOString(),
       };
 
       try {
-        // Guardar en Firestore
         const docRef = await addDoc(collection(db, "transactions"), transaction);
-        console.log("Documento agregado con ID:", docRef.id);
-
-        // Actualizar el store local
+        //console.log("Transacción agregada con ID:", docRef.id);
         addTransaction({ id: docRef.id, ...transaction });
-
-        // Reiniciar formulario
         setAmount(null);
         setCategory("");
         setDescription("");
         setDate(new Date());
       } catch (error) {
-        console.error("Error guardando en Firestore:", error);
+        console.error("Error guardando la transacción:", error);
       }
     }
   };
@@ -90,7 +95,7 @@ export const TransactionForm = () => {
             ]}
             onChange={(e) => {
               setType(e.value);
-              setCategory(""); // Reinicia la categoría al cambiar el tipo
+              setCategory("");
             }}
             className="w-full"
           />

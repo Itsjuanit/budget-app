@@ -28,11 +28,11 @@ export const Login = () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      console.log("Usuario autenticado:", email);
+      //console.log("Usuario autenticado:", email);
       setErrorMessage("");
       navigate("/"); // Redirigir al Dashboard
     } catch (error) {
-      console.error("Error iniciando sesión:", error.message);
+      //console.error("Error iniciando sesión:", error.message);
       setErrorMessage("Credenciales incorrectas. Inténtalo nuevamente.");
     }
   };
@@ -43,11 +43,11 @@ export const Login = () => {
 
     try {
       await signInWithPopup(auth, provider);
-      console.log("Usuario autenticado con Google");
+      //console.log("Usuario autenticado con Google");
       setErrorMessage("");
       navigate("/"); // Redirigir al Dashboard
     } catch (error) {
-      console.error("Error iniciando sesión con Google:", error.message);
+      //console.error("Error iniciando sesión con Google:", error.message);
       setErrorMessage("Error al iniciar sesión con Google. Inténtalo nuevamente.");
     }
   };
@@ -58,7 +58,6 @@ export const Login = () => {
         <form onSubmit={handleSubmit} className="p-fluid">
           <div className="field">
             <span className="p-float-label p-input-icon-right">
-              <i className="pi pi-envelope" />
               <InputText id="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               <label htmlFor="email">Correo Electrónico</label>
             </span>

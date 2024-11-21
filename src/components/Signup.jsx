@@ -14,7 +14,7 @@ export const Signup = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const navigate = useNavigate(); // Hook para redirigir
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,11 +31,8 @@ export const Signup = () => {
       await createUserWithEmailAndPassword(auth, email, password);
       setSuccessMessage("Cuenta creada exitosamente.");
       setErrorMessage("");
-
-      // Redirigir al dashboard
       navigate("/");
     } catch (error) {
-      // Manejar errores
       setErrorMessage(error.message);
       setSuccessMessage("");
     }
@@ -46,15 +43,11 @@ export const Signup = () => {
     const provider = new GoogleAuthProvider();
 
     try {
-      // Registrar usuario con Google
       await signInWithPopup(auth, provider);
       setSuccessMessage("Cuenta creada con Google exitosamente.");
       setErrorMessage("");
-
-      // Redirigir al dashboard
       navigate("/");
     } catch (error) {
-      // Manejar errores
       setErrorMessage(error.message);
       setSuccessMessage("");
     }

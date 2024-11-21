@@ -5,33 +5,38 @@ import { useFinanceStore } from "../store/useFinanceStore";
 import { formatCurrency } from "../utils/format";
 import { Wallet, TrendingUp, PiggyBank } from "lucide-react";
 import { db } from "@/firebaseConfig";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 export const Dashboard = () => {
-  const { categories } = useFinanceStore(); // Accede a las categorías con colores
+  const { categories } = useFinanceStore();
   const [transactions, setTransactions] = useState([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
   const [monthlySavings, setMonthlySavings] = useState(0);
   const [expensesByCategory, setExpensesByCategory] = useState([]);
 
   useEffect(() => {
-    // Escucha los cambios en la colección "transactions"
-    const unsubscribe = onSnapshot(collection(db, "transactions"), (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setTransactions(data);
-    });
+    const auth = getAuth();
+    const user = auth.currentUser;
 
-    return () => unsubscribe();
+    if (user) {
+      const userTransactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid));
+
+      const unsubscribe = onSnapshot(userTransactionsRef, (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setTransactions(data);
+      });
+
+      return () => unsubscribe();
+    }
   }, []);
 
   useEffect(() => {
-    // Filtrar solo los gastos
     const expenseTransactions = transactions.filter((t) => t.type === "expense");
 
-    // Calcular gastos por categoría
     const expensesGroupedByCategory = categories
       .filter((category) => category.type === "expense")
       .map((category) => {
@@ -43,11 +48,10 @@ export const Dashboard = () => {
           color: category.color,
         };
       })
-      .filter((category) => category.amount > 0); // Excluye categorías con monto 0
+      .filter((category) => category.amount > 0);
 
     setExpensesByCategory(expensesGroupedByCategory);
 
-    // Calcular totales mensuales
     const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
     setMonthlyExpenses(totalExpenses);
 
@@ -55,7 +59,6 @@ export const Dashboard = () => {
     setMonthlySavings(totalIncome - totalExpenses);
   }, [transactions, categories]);
 
-  // Datos para el gráfico
   const chartData = {
     labels: expensesByCategory.map((item) => item.category),
     datasets: [

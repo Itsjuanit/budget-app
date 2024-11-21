@@ -7,10 +7,11 @@ import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
 import { formatCurrency } from "../utils/format";
 import { format } from "date-fns";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { getAuth } from "firebase/auth";
 
 export const MonthlyReports = () => {
   const [transactions, setTransactions] = useState([]);
@@ -22,21 +23,26 @@ export const MonthlyReports = () => {
     transactions: [],
   });
 
-  // Cargar transacciones desde Firestore
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "transactions"), (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        date: new Date(doc.data().date),
-      }));
-      setTransactions(data);
-    });
+    const auth = getAuth();
+    const user = auth.currentUser;
 
-    return () => unsubscribe();
+    if (user) {
+      const userTransactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid));
+
+      const unsubscribe = onSnapshot(userTransactionsRef, (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          date: new Date(doc.data().date),
+        }));
+        setTransactions(data);
+      });
+
+      return () => unsubscribe();
+    }
   }, []);
 
-  // Actualizar datos mensuales según el mes seleccionado
   useEffect(() => {
     const currentMonthTransactions = transactions.filter((t) => format(t.date, "yyyy-MM") === format(selectedMonth, "yyyy-MM"));
 
