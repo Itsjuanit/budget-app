@@ -37,7 +37,7 @@ const categories = [
   { id: "1", name: "Salario", value: "salario", type: "income", color: uniqueColors[0] },
   { id: "2", name: "Freelance", value: "freelance", type: "income", color: uniqueColors[1] },
   { id: "3", name: "Inversiones", value: "inversiones", type: "income", color: uniqueColors[2] },
-  { id: "4", name: "Alquiler Claudio", value: "alquiler-claudios", type: "income", color: uniqueColors[3] },
+  { id: "4", name: "Otros ingresos", value: "otros-ingresos", type: "income", color: uniqueColors[3] },
   { id: "5", name: "Servicios (Luz, Gas, Agua)", value: "servicios", type: "expense", color: uniqueColors[4] },
   { id: "6", name: "Internet", value: "internet", type: "expense", color: uniqueColors[5] },
   { id: "7", name: "Celulares", value: "celulares", type: "expense", color: uniqueColors[6] },
