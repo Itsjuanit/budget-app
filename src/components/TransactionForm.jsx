@@ -22,7 +22,7 @@ export const TransactionForm = () => {
       { label: "Salario", value: "salario" },
       { label: "Freelance", value: "freelance" },
       { label: "Inversiones", value: "inversiones" },
-      { label: "Alquiler Claudio", value: "alquiler-claudio" },
+      { label: "Otros ingresos", value: "otros-ingresos" },
     ],
     expense: [
       { label: "Servicios (Luz, Gas, Agua)", value: "servicios" },
