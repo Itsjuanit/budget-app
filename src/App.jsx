@@ -5,11 +5,10 @@ import { Dashboard } from "./components/Dashboard";
 import { TransactionForm } from "./components/TransactionForm";
 import { MonthlyReports } from "./components/MonthlyReports";
 import { Login } from "./components/Login";
-import { Signup } from "./components/Signup"; // Importar el formulario de registro
+import { Signup } from "./components/Signup";
 import { TabView, TabPanel } from "primereact/tabview";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 
-// Componente para proteger rutas
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
   return isAuthenticated ? children : <Navigate to="/login" />;

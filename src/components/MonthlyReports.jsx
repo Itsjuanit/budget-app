@@ -9,9 +9,8 @@ import { formatCurrency } from "../utils/format";
 import { format } from "date-fns";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 import { getAuth } from "firebase/auth";
+import { generatePDF } from "../utils/pdfGenerator";
 
 export const MonthlyReports = () => {
   const [transactions, setTransactions] = useState([]);
@@ -85,34 +84,22 @@ export const MonthlyReports = () => {
     return <span className={colorClass}>{rowData.type.toUpperCase()}</span>;
   };
 
+  const generatePDFName = (userId) => {
+    const timestamp = new Date().getTime(); // Identificador único basado en tiempo
+    const formattedMonth = format(selectedMonth, "MMMM-yyyy"); // Ejemplo: "November-2024"
+    return `PAGATODO-${formattedMonth}-${userId}-${timestamp}.pdf`;
+  };
+
   const handleDownloadPDF = () => {
-    const doc = new jsPDF();
-    const tableColumn = ["Fecha", "Tipo", "Categoría", "Descripción", "Monto"];
-    const tableRows = [];
+    const auth = getAuth();
+    const user = auth.currentUser;
 
-    monthlyData.transactions.forEach((transaction) => {
-      const transactionData = [
-        format(new Date(transaction.date), "dd/MM/yyyy"),
-        transaction.type.toUpperCase(),
-        transaction.category,
-        transaction.description || "N/A",
-        formatCurrency(transaction.amount),
-      ];
-      tableRows.push(transactionData);
-    });
-
-    doc.text(`Reporte Mensual - ${format(selectedMonth, "MMMM yyyy")}`, 14, 15);
-    doc.autoTable({
-      head: [tableColumn],
-      body: tableRows,
-      startY: 20,
-    });
-
-    doc.text(`Ingresos Totales: ${formatCurrency(monthlyData.income)}`, 14, doc.autoTable.previous.finalY + 10);
-    doc.text(`Gastos Totales: ${formatCurrency(monthlyData.expenses)}`, 14, doc.autoTable.previous.finalY + 20);
-    doc.text(`Ahorros Netos: ${formatCurrency(monthlyData.savings)}`, 14, doc.autoTable.previous.finalY + 30);
-
-    doc.save(`Reporte-${format(selectedMonth, "MMMM-yyyy")}.pdf`);
+    if (user) {
+      const fileName = generatePDFName(user.uid); // Generar nombre único
+      generatePDF(monthlyData, selectedMonth, fileName); // Generar PDF
+    } else {
+      console.error("Usuario no autenticado");
+    }
   };
 
   return (
