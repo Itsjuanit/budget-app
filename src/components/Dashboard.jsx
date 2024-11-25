@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Card } from "primereact/card";
 import { Chart } from "primereact/chart";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
+import { Toast } from "primereact/toast";
 import { useFinanceStore } from "../store/useFinanceStore";
 import { formatCurrency } from "../utils/format";
 import { Wallet, TrendingUp, PiggyBank } from "lucide-react";
@@ -22,6 +23,9 @@ export const Dashboard = () => {
   const [expensesByCategory, setExpensesByCategory] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
+
+  // Ref para el Toast
+  const toast = useRef(null);
 
   useEffect(() => {
     const auth = getAuth();
@@ -94,13 +98,27 @@ export const Dashboard = () => {
   const handleDelete = async (id) => {
     try {
       await deleteTransaction(id);
+      toast.current.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Transacción eliminada correctamente",
+        life: 3000,
+      });
     } catch (error) {
       console.error("Error eliminando transacción:", error);
+      toast.current.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Hubo un problema al eliminar la transacción",
+        life: 3000,
+      });
     }
   };
 
   return (
     <div className="p-6">
+      <Toast ref={toast} />
+
       <h1 className="text-3xl font-bold mb-6">Análisis del gasto</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">

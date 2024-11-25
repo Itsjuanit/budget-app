@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { Message } from "primereact/message";
+import { Toast } from "primereact/toast"; // Importa Toast
 import { useFinanceStore } from "../store/useFinanceStore";
 import { db } from "@/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
@@ -19,6 +20,7 @@ export const TransactionForm = () => {
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
   const [errors, setErrors] = useState({});
+  const toast = useRef(null); // Referencia para el Toast
 
   const validateFields = () => {
     const newErrors = {};
@@ -39,6 +41,12 @@ export const TransactionForm = () => {
 
     if (!user) {
       console.error("Usuario no autenticado");
+      toast.current.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No estás autenticado. Por favor, inicia sesión.",
+        life: 3000,
+      });
       return;
     }
 
@@ -62,13 +70,28 @@ export const TransactionForm = () => {
       setDescription("");
       setDate(new Date());
       setErrors({});
+      toast.current.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Transacción agregada correctamente.",
+        life: 3000,
+      });
     } catch (error) {
       console.error("Error guardando la transacción:", error);
+      toast.current.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Hubo un problema al guardar la transacción.",
+        life: 3000,
+      });
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
+      {/* Componente Toast */}
+      <Toast ref={toast} />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
           <label className="font-medium">Tipo</label>

@@ -1,32 +1,35 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Card } from "primereact/card";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
+import { Toast } from "primereact/toast"; // Importa Toast
 import { formatCurrency } from "../utils/format";
 import { format } from "date-fns";
 import { EditTransactionForm } from "./EditTransactionForm";
-import { useTransactions } from "../context/TransactionsProvider"; // Importa el contexto
+import { useTransactions } from "../context/TransactionsProvider";
+import { generatePDF } from "../utils/pdfGenerator";
 
 export const MonthlyReports = () => {
   const {
-    transactions = [], // Asegurar que sea un array
-    availableMonths = [], // Asegurar que sea un array
+    transactions = [],
+    availableMonths = [],
     selectedMonth,
     setSelectedMonth,
     loadTransactionsForMonth,
     updateTransaction,
     deleteTransaction,
-  } = useTransactions(); // Usa el contexto para manejar el estado
+  } = useTransactions();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
+  const toast = useRef(null); // Referencia para Toast
 
   useEffect(() => {
     if (selectedMonth) {
-      loadTransactionsForMonth(selectedMonth); // Cargar transacciones para el mes seleccionado
+      loadTransactionsForMonth(selectedMonth);
     }
   }, [selectedMonth, loadTransactionsForMonth]);
 
@@ -37,15 +40,89 @@ export const MonthlyReports = () => {
 
   const handleDelete = async (id) => {
     try {
-      await deleteTransaction(id); // Usa el contexto para eliminar
+      await deleteTransaction(id);
+      toast.current.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Transacción eliminada correctamente.",
+        life: 3000,
+      });
     } catch (error) {
       console.error("Error eliminando transacción:", error);
+      toast.current.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudo eliminar la transacción.",
+        life: 3000,
+      });
     }
   };
 
   const handleTransactionUpdate = (updatedTransaction) => {
-    updateTransaction(updatedTransaction); // Actualiza la transacción en el contexto
-    setIsModalOpen(false);
+    try {
+      updateTransaction(updatedTransaction);
+      toast.current.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Transacción actualizada correctamente.",
+        life: 3000,
+      });
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Error actualizando transacción:", error);
+      toast.current.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudo actualizar la transacción.",
+        life: 3000,
+      });
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!transactions.length || !selectedMonth) {
+      toast.current.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No hay datos para generar el reporte.",
+        life: 3000,
+      });
+      return;
+    }
+
+    // Filtrar transacciones válidas
+    const sanitizedTransactions = transactions.filter((t) => t.date && !isNaN(new Date(t.date).getTime()));
+
+    const formattedMonth = format(new Date(selectedMonth), "MMMM-yyyy");
+    const fileName = `Reporte-${formattedMonth}.pdf`;
+
+    const pdfContent = {
+      transactions: sanitizedTransactions,
+      month: formattedMonth,
+      income: sanitizedTransactions.reduce((acc, t) => (t.type === "income" ? acc + t.amount : acc), 0),
+      expenses: sanitizedTransactions.reduce((acc, t) => (t.type === "expense" ? acc + t.amount : acc), 0),
+      savings:
+        sanitizedTransactions.reduce((acc, t) => (t.type === "income" ? acc + t.amount : acc), 0) -
+        sanitizedTransactions.reduce((acc, t) => (t.type === "expense" ? acc + t.amount : acc), 0),
+    };
+
+    try {
+      generatePDF(pdfContent, selectedMonth, "UsuarioID"); // Ajustar UserID según corresponda
+      toast.current.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Reporte descargado correctamente.",
+        life: 3000,
+      });
+    } catch (error) {
+      console.error("Error generando el PDF:", error);
+      toast.current.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudo generar el reporte.",
+        life: 3000,
+      });
+    }
   };
 
   const handleModalClose = () => {
@@ -53,33 +130,22 @@ export const MonthlyReports = () => {
     setTransactionToEdit(null);
   };
 
-  const handleDownloadPDF = () => {
-    if (!transactions.length || !selectedMonth) return;
-
-    const formattedMonth = format(new Date(selectedMonth), "MMMM-yyyy");
-    const fileName = `Reporte-${formattedMonth}.pdf`;
-
-    const pdfContent = {
-      transactions,
-      month: formattedMonth,
-    };
-
-    generatePDF(pdfContent, fileName);
-  };
-
   const monthOptions = availableMonths
     .map((monthYear) => {
-      if (!monthYear) return null; // Verifica valores inválidos
+      if (!monthYear) return null;
       const [year, month] = monthYear.split("-");
       return {
         value: monthYear,
         label: format(new Date(parseInt(year), parseInt(month) - 1), "MMMM yyyy"),
       };
     })
-    .filter(Boolean); // Elimina valores nulos o indefinidos
+    .filter(Boolean);
 
   return (
     <div className="p-6">
+      {/* Componente Toast */}
+      <Toast ref={toast} />
+
       <h1 className="text-3xl font-bold mb-6">Reporte mensual</h1>
 
       <div className="mb-6">

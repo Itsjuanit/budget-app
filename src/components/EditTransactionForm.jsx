@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { Message } from "primereact/message";
+import { Toast } from "primereact/toast";
 import { useTransactions } from "../context/TransactionsProvider";
 import { categories } from "../utils/categories";
 
@@ -17,6 +18,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
   const [description, setDescription] = useState(transaction?.description || "");
   const [date, setDate] = useState(transaction ? new Date(transaction.date) : new Date());
   const [errors, setErrors] = useState({});
+  const toast = useRef(null); // Referencia para Toast
 
   const validateFields = () => {
     const newErrors = {};
@@ -45,14 +47,32 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
     try {
       await updateTransaction(updatedTransaction);
       console.log("Transacción actualizada:", updatedTransaction.id);
+
+      toast.current.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Transacción actualizada correctamente.",
+        life: 3000,
+      });
+
       onClose();
     } catch (error) {
       console.error("Error actualizando la transacción:", error);
+
+      toast.current.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Hubo un problema al actualizar la transacción.",
+        life: 3000,
+      });
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
+      {/* Componente Toast */}
+      <Toast ref={toast} />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
           <label className="font-medium">Tipo</label>
