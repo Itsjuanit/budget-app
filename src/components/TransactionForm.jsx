@@ -8,7 +8,7 @@ import { useFinanceStore } from "../store/useFinanceStore";
 import { db } from "@/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { categories } from "../utils/categories"; // Importamos las categorías
+import { categories } from "../utils/categories";
 
 export const TransactionForm = () => {
   const { addTransaction } = useFinanceStore();
@@ -29,7 +29,6 @@ export const TransactionForm = () => {
     }
 
     if (amount && category && date) {
-      // Generar el campo monthYear
       const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
       const transaction = {
@@ -38,8 +37,8 @@ export const TransactionForm = () => {
         amount,
         category,
         description,
-        date: date.toISOString(), // Fecha completa en formato ISO
-        monthYear, // Campo nuevo para filtrar por mes y año
+        date: date.toISOString(),
+        monthYear,
       };
 
       try {
