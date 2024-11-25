@@ -8,6 +8,7 @@ import { useFinanceStore } from "../store/useFinanceStore";
 import { db } from "@/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { categories } from "../utils/categories"; // Importamos las categorías
 
 export const TransactionForm = () => {
   const { addTransaction } = useFinanceStore();
@@ -16,37 +17,6 @@ export const TransactionForm = () => {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
-
-  const categories = {
-    income: [
-      { label: "Salario", value: "salario" },
-      { label: "Freelance", value: "freelance" },
-      { label: "Inversiones", value: "inversiones" },
-      { label: "Otros ingresos", value: "otros-ingresos" },
-    ],
-    expense: [
-      { label: "Servicios (Luz, Gas, Agua)", value: "servicios" },
-      { label: "Internet", value: "internet" },
-      { label: "Celulares", value: "celulares" },
-      { label: "Netflix", value: "netflix" },
-      { label: "YouTube Premium", value: "youtube-premium" },
-      { label: "Disney+", value: "disney-plus" },
-      { label: "Spotify", value: "spotify" },
-      { label: "Alquiler", value: "alquiler" },
-      { label: "Tarjeta de crédito", value: "tarjeta-credito" },
-      { label: "Supermercado", value: "supermercado" },
-      { label: "Transporte", value: "transporte" },
-      { label: "Combustible", value: "combustible" },
-      { label: "Educación", value: "educacion" },
-      { label: "Salud", value: "salud" },
-      { label: "Hobbies", value: "hobbies" },
-      { label: "Otros gastos", value: "otros-gastos" },
-      { label: "Prestamos", value: "prestamos" },
-      { label: "Dibujo", value: "dibujo" },
-      { label: "Rugby", value: "rugby" },
-      { label: "Circulo", value: "circulo" },
-    ],
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

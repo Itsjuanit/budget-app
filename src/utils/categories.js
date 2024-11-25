@@ -1,0 +1,31 @@
+// utils/categories.js
+export const categories = {
+  income: [
+    { label: "Salario", value: "salario" },
+    { label: "Freelance", value: "freelance" },
+    { label: "Inversiones", value: "inversiones" },
+    { label: "Otros ingresos", value: "otros-ingresos" },
+  ],
+  expense: [
+    { label: "Servicios (Luz, Gas, Agua)", value: "servicios" },
+    { label: "Internet", value: "internet" },
+    { label: "Celulares", value: "celulares" },
+    { label: "Netflix", value: "netflix" },
+    { label: "YouTube Premium", value: "youtube-premium" },
+    { label: "Disney+", value: "disney-plus" },
+    { label: "Spotify", value: "spotify" },
+    { label: "Alquiler", value: "alquiler" },
+    { label: "Tarjeta de crédito", value: "tarjeta-credito" },
+    { label: "Supermercado", value: "supermercado" },
+    { label: "Transporte", value: "transporte" },
+    { label: "Combustible", value: "combustible" },
+    { label: "Educación", value: "educacion" },
+    { label: "Salud", value: "salud" },
+    { label: "Hobbies", value: "hobbies" },
+    { label: "Otros gastos", value: "otros-gastos" },
+    { label: "Préstamos", value: "prestamos" },
+    { label: "Dibujo", value: "dibujo" },
+    { label: "Rugby", value: "rugby" },
+    { label: "Círculo", value: "circulo" },
+  ],
+};

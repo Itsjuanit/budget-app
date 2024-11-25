@@ -6,6 +6,7 @@ import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
+import { categories } from "../utils/categories";
 
 export const EditTransactionForm = ({ transaction, onClose, onTransactionUpdated }) => {
   const [type, setType] = useState(transaction?.type || "expense");
@@ -82,10 +83,7 @@ export const EditTransactionForm = ({ transaction, onClose, onTransactionUpdated
           <label className="font-medium">Categoría</label>
           <Dropdown
             value={category}
-            options={[
-              { label: "Servicios (Luz, Gas, Agua)", value: "servicios" },
-              { label: "Internet", value: "internet" },
-            ]}
+            options={categories[type]?.map((c) => ({ label: c.label, value: c.value }))}
             onChange={(e) => setCategory(e.value)}
             className="w-full"
             placeholder="Selecciona una categoría"

@@ -56,47 +56,40 @@ export const MonthlyReports = () => {
 
   // Cargar las transacciones del mes seleccionado
   useEffect(() => {
-    const loadTransactionsForMonth = async () => {
-      const auth = getAuth();
-      const user = auth.currentUser;
-
-      if (!user || !selectedMonth) return;
-
-      const transactionsRef = query(
-        collection(db, "transactions"),
-        where("userId", "==", user.uid),
-        where("monthYear", "==", selectedMonth)
-      );
-
-      const snapshot = await getDocs(transactionsRef);
-
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        date: parseISO(doc.data().date),
-      }));
-
-      setTransactions(data);
-
-      // Calcular ingresos, gastos y ahorros
-      const income = data.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
-      const expenses = data.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
-
-      setMonthlyData({
-        income,
-        expenses,
-        savings: income - expenses,
-        transactions: data,
-      });
-    };
-
+    if (!selectedMonth) return;
     loadTransactionsForMonth();
   }, [selectedMonth]);
 
-  const updateTransactionInState = (updatedTransaction) => {
-    setTransactions((prevTransactions) =>
-      prevTransactions.map((transaction) => (transaction.id === updatedTransaction.id ? updatedTransaction : transaction))
-    );
+  const loadTransactionsForMonth = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user || !selectedMonth) return;
+
+    const transactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid), where("monthYear", "==", selectedMonth));
+
+    const snapshot = await getDocs(transactionsRef);
+
+    const data = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      date: parseISO(doc.data().date),
+    }));
+
+    setTransactions(data);
+    updateMonthlyData(data);
+  };
+
+  const updateMonthlyData = (data) => {
+    const income = data.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+    const expenses = data.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+
+    setMonthlyData({
+      income,
+      expenses,
+      savings: income - expenses,
+      transactions: data,
+    });
   };
 
   const handleEdit = (transaction) => {
@@ -107,21 +100,9 @@ export const MonthlyReports = () => {
   const handleDelete = async (id) => {
     try {
       await deleteDoc(doc(db, "transactions", id));
-      // Filtrar las transacciones restantes
+
       const updatedTransactions = transactions.filter((t) => t.id !== id);
-
-      setTransactions(updatedTransactions);
-
-      // Recalcular ingresos, gastos y ahorros
-      const income = updatedTransactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
-      const expenses = updatedTransactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
-
-      setMonthlyData({
-        income,
-        expenses,
-        savings: income - expenses,
-        transactions: updatedTransactions,
-      });
+      updateMonthlyData(updatedTransactions); // Recalcula los datos después de eliminar
     } catch (error) {
       console.error("Error eliminando transacción:", error);
     }
@@ -132,7 +113,6 @@ export const MonthlyReports = () => {
     setTransactionToEdit(null);
   };
 
-  // Opciones de meses para el Dropdown
   const monthOptions = availableMonths.map((monthYear) => {
     const [year, month] = monthYear.split("-");
     return {
@@ -141,29 +121,17 @@ export const MonthlyReports = () => {
     };
   });
 
-  const chartData = {
-    labels: ["Ingresos", "Gastos", "Ahorros"],
-    datasets: [
-      {
-        data: [monthlyData.income, monthlyData.expenses, monthlyData.savings],
-        backgroundColor: ["#22c55e", "#ef4444", "#3b82f6"],
-      },
-    ],
-  };
-
-  const amountTemplate = (rowData) => formatCurrency(rowData.amount);
-  const dateTemplate = (rowData) => format(rowData.date, "dd/MM/yyyy");
-  const typeTemplate = (rowData) => {
-    const colorClass = rowData.type === "income" ? "text-green-600" : "text-red-600";
-    return <span className={colorClass}>{rowData.type.toUpperCase()}</span>;
-  };
-
   const actionTemplate = (rowData) => (
     <div className="flex gap-2">
       <Button label="Editar" icon="pi pi-pencil" className="p-button-rounded p-button-success" onClick={() => handleEdit(rowData)} />
       <Button label="Borrar" icon="pi pi-trash" className="p-button-rounded p-button-danger" onClick={() => handleDelete(rowData.id)} />
     </div>
   );
+
+  const handleTransactionUpdate = (updatedTransaction) => {
+    const updatedTransactions = transactions.map((t) => (t.id === updatedTransaction.id ? updatedTransaction : t));
+    updateMonthlyData(updatedTransactions); // Actualiza el estado con los nuevos datos
+  };
 
   const generatePDFName = (userId) => {
     const formattedMonth = format(new Date(selectedMonth), "MMMM-yyyy");
@@ -198,42 +166,40 @@ export const MonthlyReports = () => {
 
       <Button label="Descargar Reporte PDF" icon="pi pi-file-pdf" className="p-button-danger mb-4" onClick={handleDownloadPDF} />
 
-      <div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card className="shadow-lg">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-600">Ingresos totales</h3>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(monthlyData.income)}</p>
-            </div>
-          </Card>
-
-          <Card className="shadow-lg">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-600">Gastos totales</h3>
-              <p className="text-2xl font-bold text-red-600">{formatCurrency(monthlyData.expenses)}</p>
-            </div>
-          </Card>
-
-          <Card className="shadow-lg">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-600">Ahorros netos</h3>
-              <p className="text-2xl font-bold text-blue-600">{formatCurrency(monthlyData.savings)}</p>
-            </div>
-          </Card>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Card className="shadow-lg">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-600">Ingresos Totales</h3>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(monthlyData.income)}</p>
+          </div>
+        </Card>
 
         <Card className="shadow-lg">
-          <h3 className="text-xl font-semibold mb-4">Detalles de transacciones</h3>
-          <DataTable value={monthlyData.transactions} paginator rows={5} sortField="date" sortOrder={-1} className="p-datatable-sm">
-            <Column field="date" header="Fecha" body={dateTemplate} sortable />
-            <Column field="type" header="Tipo" body={typeTemplate} sortable />
-            <Column field="category" header="Categoría" sortable />
-            <Column field="description" header="Descripción" sortable />
-            <Column field="amount" header="Monto" body={amountTemplate} sortable />
-            <Column body={actionTemplate} />
-          </DataTable>
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-600">Gastos Totales</h3>
+            <p className="text-2xl font-bold text-red-600">{formatCurrency(monthlyData.expenses)}</p>
+          </div>
+        </Card>
+
+        <Card className="shadow-lg">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-600">Ahorros Netos</h3>
+            <p className="text-2xl font-bold text-blue-600">{formatCurrency(monthlyData.savings)}</p>
+          </div>
         </Card>
       </div>
+
+      <Card className="shadow-lg">
+        <h3 className="text-xl font-semibold mb-4">Detalles de transacciones</h3>
+        <DataTable value={transactions} paginator rows={5} sortField="date" sortOrder={-1} className="p-datatable-sm">
+          <Column field="date" header="Fecha" body={(rowData) => format(rowData.date, "dd/MM/yyyy")} sortable />
+          <Column field="type" header="Tipo" body={(rowData) => rowData.type.toUpperCase()} sortable />
+          <Column field="category" header="Categoría" sortable />
+          <Column field="description" header="Descripción" sortable />
+          <Column field="amount" header="Monto" body={(rowData) => formatCurrency(rowData.amount)} sortable />
+          <Column body={actionTemplate} />
+        </DataTable>
+      </Card>
 
       <Dialog
         header="Editar Transacción"
@@ -246,7 +212,7 @@ export const MonthlyReports = () => {
         }}
       >
         {transactionToEdit && (
-          <EditTransactionForm transaction={transactionToEdit} onClose={handleModalClose} onTransactionUpdated={updateTransactionInState} />
+          <EditTransactionForm transaction={transactionToEdit} onClose={handleModalClose} onTransactionUpdated={handleTransactionUpdate} />
         )}
       </Dialog>
     </div>
