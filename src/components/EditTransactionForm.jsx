@@ -4,11 +4,12 @@ import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/firebaseConfig";
+import { useTransactions } from "../context/TransactionsProvider";
 import { categories } from "../utils/categories";
 
-export const EditTransactionForm = ({ transaction, onClose, onTransactionUpdated }) => {
+export const EditTransactionForm = ({ transaction, onClose }) => {
+  const { updateTransaction } = useTransactions(); // Obtén la función de actualización del contexto
+
   const [type, setType] = useState(transaction?.type || "expense");
   const [amount, setAmount] = useState(transaction?.amount || null);
   const [category, setCategory] = useState(transaction?.category || "");
@@ -33,16 +34,9 @@ export const EditTransactionForm = ({ transaction, onClose, onTransactionUpdated
     };
 
     try {
-      const transactionRef = doc(db, "transactions", transaction.id);
-      await updateDoc(transactionRef, updatedTransaction);
-      console.log("Transacción actualizada:", transaction.id);
-
-      // Notificar al componente padre sobre la actualización
-      if (onTransactionUpdated) {
-        onTransactionUpdated(updatedTransaction);
-      }
-
-      onClose(); // Cerrar el modal después de guardar
+      await updateTransaction(updatedTransaction); // Actualiza la transacción en el contexto
+      console.log("Transacción actualizada:", updatedTransaction.id);
+      onClose(); // Cierra el modal
     } catch (error) {
       console.error("Error actualizando la transacción:", error);
     }
@@ -61,7 +55,7 @@ export const EditTransactionForm = ({ transaction, onClose, onTransactionUpdated
             ]}
             onChange={(e) => {
               setType(e.value);
-              setCategory("");
+              setCategory(""); // Resetea la categoría cuando cambia el tipo
             }}
             className="w-full"
           />

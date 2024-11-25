@@ -8,6 +8,7 @@ import { Login } from "./components/Login";
 import { Signup } from "./components/Signup";
 import { TabView, TabPanel } from "primereact/tabview";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { TransactionsProvider } from "./context/TransactionsProvider";
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -46,23 +47,26 @@ function App() {
                   path="/"
                   element={
                     <ProtectedRoute>
-                      <TabView>
-                        <TabPanel header="Dashboard">
-                          <div className="grid grid-cols-1 gap-8">
-                            <section>
-                              <h2 className="text-2xl font-semibold mb-4">Transacciones</h2>
-                              <TransactionForm />
-                            </section>
-                            <section>
-                              <Dashboard />
-                            </section>
-                          </div>
-                        </TabPanel>
+                      {/* Proveedor de transacciones para las rutas protegidas */}
+                      <TransactionsProvider>
+                        <TabView>
+                          <TabPanel header="Dashboard">
+                            <div className="grid grid-cols-1 gap-8">
+                              <section>
+                                <h2 className="text-2xl font-semibold mb-4">Transacciones</h2>
+                                <TransactionForm />
+                              </section>
+                              <section>
+                                <Dashboard />
+                              </section>
+                            </div>
+                          </TabPanel>
 
-                        <TabPanel header="Reporte mensual">
-                          <MonthlyReports />
-                        </TabPanel>
-                      </TabView>
+                          <TabPanel header="Reporte mensual">
+                            <MonthlyReports />
+                          </TabPanel>
+                        </TabView>
+                      </TransactionsProvider>
                     </ProtectedRoute>
                   }
                 />
