@@ -36,7 +36,6 @@ export const MonthlyReports = () => {
       if (!user) return;
 
       const transactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid), orderBy("monthYear"));
-
       const snapshot = await getDocs(transactionsRef);
 
       const uniqueMonths = new Set();
@@ -108,7 +107,21 @@ export const MonthlyReports = () => {
   const handleDelete = async (id) => {
     try {
       await deleteDoc(doc(db, "transactions", id));
-      setTransactions((prev) => prev.filter((t) => t.id !== id));
+      // Filtrar las transacciones restantes
+      const updatedTransactions = transactions.filter((t) => t.id !== id);
+
+      setTransactions(updatedTransactions);
+
+      // Recalcular ingresos, gastos y ahorros
+      const income = updatedTransactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+      const expenses = updatedTransactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+
+      setMonthlyData({
+        income,
+        expenses,
+        savings: income - expenses,
+        transactions: updatedTransactions,
+      });
     } catch (error) {
       console.error("Error eliminando transacción:", error);
     }
@@ -209,37 +222,6 @@ export const MonthlyReports = () => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <Card className="shadow-lg">
-            <h3 className="text-xl font-semibold mb-4">Resumen mensual</h3>
-            <Chart type="doughnut" data={chartData} style={{ height: "300px" }} />
-          </Card>
-
-          <Card className="shadow-lg">
-            <h3 className="text-xl font-semibold mb-4">Estadísticas mensuales</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between">
-                <span>Tasa de ahorro:</span>
-                <span className="font-bold">{monthlyData.income ? Math.round((monthlyData.savings / monthlyData.income) * 100) : 0}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Número de transacciones:</span>
-                <span className="font-bold">{monthlyData.transactions.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Transacción promedio:</span>
-                <span className="font-bold">
-                  {formatCurrency(
-                    monthlyData.transactions.length
-                      ? monthlyData.expenses / monthlyData.transactions.filter((t) => t.type === "expense").length
-                      : 0
-                  )}
-                </span>
-              </div>
-            </div>
-          </Card>
-        </div>
-
         <Card className="shadow-lg">
           <h3 className="text-xl font-semibold mb-4">Detalles de transacciones</h3>
           <DataTable value={monthlyData.transactions} paginator rows={5} sortField="date" sortOrder={-1} className="p-datatable-sm">
@@ -259,8 +241,8 @@ export const MonthlyReports = () => {
         style={{ width: "40vw" }}
         onHide={handleModalClose}
         breakpoints={{
-          "960px": "75vw", // En pantallas menores a 960px, el ancho será el 75% del viewport
-          "640px": "90vw", // En pantallas menores a 640px, el ancho será el 90% del viewport
+          "960px": "75vw",
+          "640px": "90vw",
         }}
       >
         {transactionToEdit && (
