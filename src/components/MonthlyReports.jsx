@@ -158,7 +158,7 @@ export const MonthlyReports = () => {
       <Dialog
         header="Editar Transacción"
         visible={isModalOpen}
-        style={{ width: "40vw" }}
+        style={{ width: "45vw" }}
         onHide={handleModalClose}
         breakpoints={{
           "960px": "75vw",

@@ -11,6 +11,7 @@ import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { useTransactions } from "../context/TransactionsProvider";
 import { EditTransactionForm } from "./EditTransactionForm";
+import { format } from "date-fns";
 
 export const Dashboard = () => {
   const { categories } = useFinanceStore();
@@ -149,6 +150,9 @@ export const Dashboard = () => {
               <li key={transaction.id} className="flex justify-between items-center p-2 border-b last:border-0">
                 <div>
                   <span className="font-medium">{transaction.description}</span>
+                  <span className="ml-2">
+                    <small className="text-gray-500">{format(new Date(transaction.date), "dd/MM/yyyy")}</small>
+                  </span>
                   <p className="text-gray-600">{formatCurrency(transaction.amount)}</p>
                 </div>
                 <div className="flex gap-1">
@@ -169,7 +173,16 @@ export const Dashboard = () => {
         </Card>
       </div>
 
-      <Dialog header="Editar Transacción" visible={isModalOpen} style={{ width: "40vw" }} onHide={() => setIsModalOpen(false)}>
+      <Dialog
+        header="Editar Transacción"
+        visible={isModalOpen}
+        style={{ width: "45vw" }}
+        onHide={() => setIsModalOpen(false)}
+        breakpoints={{
+          "960px": "75vw",
+          "640px": "90vw",
+        }}
+      >
         {transactionToEdit && <EditTransactionForm transaction={transactionToEdit} onClose={() => setIsModalOpen(false)} />}
       </Dialog>
     </div>

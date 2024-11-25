@@ -18,7 +18,7 @@ export const TransactionForm = () => {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
-  const [errors, setErrors] = useState({}); // Estado para manejar los errores
+  const [errors, setErrors] = useState({});
 
   const validateFields = () => {
     const newErrors = {};
@@ -61,7 +61,7 @@ export const TransactionForm = () => {
       setCategory("");
       setDescription("");
       setDate(new Date());
-      setErrors({}); // Limpia errores después de guardar
+      setErrors({});
     } catch (error) {
       console.error("Error guardando la transacción:", error);
     }
@@ -70,7 +70,6 @@ export const TransactionForm = () => {
   return (
     <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Tipo */}
         <div className="flex flex-col gap-2">
           <label className="font-medium">Tipo</label>
           <Dropdown
@@ -87,7 +86,6 @@ export const TransactionForm = () => {
           />
         </div>
 
-        {/* Monto */}
         <div className="flex flex-col gap-2">
           <label className="font-medium">Monto</label>
           <InputNumber
@@ -101,7 +99,6 @@ export const TransactionForm = () => {
           {errors.amount && <Message severity="error" text={errors.amount} />}
         </div>
 
-        {/* Categoría */}
         <div className="flex flex-col gap-2">
           <label className="font-medium">Categoría</label>
           <Dropdown
@@ -114,14 +111,12 @@ export const TransactionForm = () => {
           {errors.category && <Message severity="error" text={errors.category} />}
         </div>
 
-        {/* Fecha */}
         <div className="flex flex-col gap-2">
           <label className="font-medium">Fecha</label>
           <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" />
           {errors.date && <Message severity="error" text={errors.date} />}
         </div>
 
-        {/* Descripción */}
         <div className="flex flex-col gap-2 md:col-span-2">
           <label className="font-medium">Descripción</label>
           <InputText

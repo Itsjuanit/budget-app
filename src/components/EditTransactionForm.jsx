@@ -4,25 +4,34 @@ import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
+import { Message } from "primereact/message";
 import { useTransactions } from "../context/TransactionsProvider";
 import { categories } from "../utils/categories";
 
 export const EditTransactionForm = ({ transaction, onClose }) => {
-  const { updateTransaction } = useTransactions(); // Obtén la función de actualización del contexto
+  const { updateTransaction } = useTransactions();
 
   const [type, setType] = useState(transaction?.type || "expense");
   const [amount, setAmount] = useState(transaction?.amount || null);
   const [category, setCategory] = useState(transaction?.category || "");
   const [description, setDescription] = useState(transaction?.description || "");
   const [date, setDate] = useState(transaction ? new Date(transaction.date) : new Date());
+  const [errors, setErrors] = useState({});
+
+  const validateFields = () => {
+    const newErrors = {};
+    if (!amount) newErrors.amount = "El monto es obligatorio.";
+    if (!category) newErrors.category = "La categoría es obligatoria.";
+    if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
+    if (!date) newErrors.date = "La fecha es obligatoria.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!transaction) {
-      console.error("No se proporcionó ninguna transacción para editar.");
-      return;
-    }
+    if (!validateFields()) return;
 
     const updatedTransaction = {
       ...transaction,
@@ -34,9 +43,9 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
     };
 
     try {
-      await updateTransaction(updatedTransaction); // Actualiza la transacción en el contexto
+      await updateTransaction(updatedTransaction);
       console.log("Transacción actualizada:", updatedTransaction.id);
-      onClose(); // Cierra el modal
+      onClose();
     } catch (error) {
       console.error("Error actualizando la transacción:", error);
     }
@@ -55,7 +64,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
             ]}
             onChange={(e) => {
               setType(e.value);
-              setCategory(""); // Resetea la categoría cuando cambia el tipo
+              setCategory("");
             }}
             className="w-full"
           />
@@ -71,6 +80,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
             locale="es-AR"
             className="w-full"
           />
+          {errors.amount && <Message severity="error" text={errors.amount} />}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -82,20 +92,33 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
             className="w-full"
             placeholder="Selecciona una categoría"
           />
+          {errors.category && <Message severity="error" text={errors.category} />}
         </div>
 
         <div className="flex flex-col gap-2">
           <label className="font-medium">Fecha</label>
           <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" />
+          {errors.date && <Message severity="error" text={errors.date} />}
         </div>
 
         <div className="flex flex-col gap-2 sm:col-span-2">
           <label className="font-medium">Descripción</label>
-          <InputText value={description} onChange={(e) => setDescription(e.target.value)} className="w-full" />
+          <InputText
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full"
+            placeholder="Ingrese una descripción"
+          />
+          {errors.description && <Message severity="error" text={errors.description} />}
         </div>
       </div>
 
-      <Button type="submit" label="Guardar Cambios" className="mt-4 w-full sm:w-auto" disabled={!amount || !category || !date} />
+      <Button
+        type="submit"
+        label="Guardar Cambios"
+        className="mt-4 w-full sm:w-auto"
+        disabled={!amount || !category || !description.trim() || !date}
+      />
     </form>
   );
 };
