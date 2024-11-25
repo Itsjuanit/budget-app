@@ -4,6 +4,7 @@ import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
+import { Message } from "primereact/message";
 import { useFinanceStore } from "../store/useFinanceStore";
 import { db } from "@/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
@@ -17,9 +18,22 @@ export const TransactionForm = () => {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
+  const [errors, setErrors] = useState({}); // Estado para manejar los errores
+
+  const validateFields = () => {
+    const newErrors = {};
+    if (!amount) newErrors.amount = "El monto es obligatorio.";
+    if (!category) newErrors.category = "La categoría es obligatoria.";
+    if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
+    if (!date) newErrors.date = "La fecha es obligatoria.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateFields()) return;
+
     const auth = getAuth();
     const user = auth.currentUser;
 
@@ -28,35 +42,35 @@ export const TransactionForm = () => {
       return;
     }
 
-    if (amount && category && date) {
-      const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
-      const transaction = {
-        userId: user.uid,
-        type,
-        amount,
-        category,
-        description,
-        date: date.toISOString(),
-        monthYear,
-      };
+    const transaction = {
+      userId: user.uid,
+      type,
+      amount,
+      category,
+      description,
+      date: date.toISOString(),
+      monthYear,
+    };
 
-      try {
-        const docRef = await addDoc(collection(db, "transactions"), transaction);
-        console.log("Transacción agregada con ID:", docRef.id);
-        setAmount(null);
-        setCategory("");
-        setDescription("");
-        setDate(new Date());
-      } catch (error) {
-        console.error("Error guardando la transacción:", error);
-      }
+    try {
+      const docRef = await addDoc(collection(db, "transactions"), transaction);
+      console.log("Transacción agregada con ID:", docRef.id);
+      setAmount(null);
+      setCategory("");
+      setDescription("");
+      setDate(new Date());
+      setErrors({}); // Limpia errores después de guardar
+    } catch (error) {
+      console.error("Error guardando la transacción:", error);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Tipo */}
         <div className="flex flex-col gap-2">
           <label className="font-medium">Tipo</label>
           <Dropdown
@@ -73,6 +87,7 @@ export const TransactionForm = () => {
           />
         </div>
 
+        {/* Monto */}
         <div className="flex flex-col gap-2">
           <label className="font-medium">Monto</label>
           <InputNumber
@@ -83,8 +98,10 @@ export const TransactionForm = () => {
             locale="es-AR"
             className="w-full"
           />
+          {errors.amount && <Message severity="error" text={errors.amount} />}
         </div>
 
+        {/* Categoría */}
         <div className="flex flex-col gap-2">
           <label className="font-medium">Categoría</label>
           <Dropdown
@@ -94,20 +111,30 @@ export const TransactionForm = () => {
             className="w-full"
             placeholder="Selecciona una categoría"
           />
+          {errors.category && <Message severity="error" text={errors.category} />}
         </div>
 
+        {/* Fecha */}
         <div className="flex flex-col gap-2">
           <label className="font-medium">Fecha</label>
           <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" />
+          {errors.date && <Message severity="error" text={errors.date} />}
         </div>
 
+        {/* Descripción */}
         <div className="flex flex-col gap-2 md:col-span-2">
           <label className="font-medium">Descripción</label>
-          <InputText value={description} onChange={(e) => setDescription(e.target.value)} className="w-full" />
+          <InputText
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full"
+            placeholder="Ingrese una descripción"
+          />
+          {errors.description && <Message severity="error" text={errors.description} />}
         </div>
       </div>
 
-      <Button type="submit" label="Agregar" className="mt-4 w-full" disabled={!amount || !category || !date} />
+      <Button type="submit" label="Agregar" className="mt-4 w-full" />
     </form>
   );
 };
