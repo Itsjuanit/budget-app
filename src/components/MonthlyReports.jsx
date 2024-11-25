@@ -6,15 +6,16 @@ import { Column } from "primereact/column";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
 import { formatCurrency } from "../utils/format";
-import { format } from "date-fns";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { format, parseISO } from "date-fns";
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 import { getAuth } from "firebase/auth";
 import { generatePDF } from "../utils/pdfGenerator";
 
 export const MonthlyReports = () => {
-  const [transactions, setTransactions] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [transactions, setTransactions] = useState([]); // Transacciones del mes seleccionado
+  const [availableMonths, setAvailableMonths] = useState([]); // Meses con información
+  const [selectedMonth, setSelectedMonth] = useState(null); // Mes seleccionado
   const [monthlyData, setMonthlyData] = useState({
     income: 0,
     expenses: 0,
@@ -22,48 +23,81 @@ export const MonthlyReports = () => {
     transactions: [],
   });
 
+  // Cargar los meses disponibles con información
   useEffect(() => {
-    const auth = getAuth();
-    const user = auth.currentUser;
+    const loadAvailableMonths = async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
 
-    if (user) {
-      const userTransactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid));
+      if (!user) return;
 
-      const unsubscribe = onSnapshot(userTransactionsRef, (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          date: new Date(doc.data().date),
-        }));
-        setTransactions(data);
+      const transactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid), orderBy("monthYear"));
+
+      const snapshot = await getDocs(transactionsRef);
+
+      const uniqueMonths = new Set();
+      snapshot.docs.forEach((doc) => {
+        uniqueMonths.add(doc.data().monthYear);
       });
 
-      return () => unsubscribe();
-    }
+      const monthsArray = Array.from(uniqueMonths).sort();
+      console.log("Available months:", monthsArray); // Depuración
+
+      setAvailableMonths(monthsArray);
+
+      if (monthsArray.length > 0) {
+        setSelectedMonth(monthsArray[monthsArray.length - 1]); // Selecciona el mes más reciente
+      }
+    };
+
+    loadAvailableMonths();
   }, []);
 
+  // Cargar las transacciones del mes seleccionado
   useEffect(() => {
-    const currentMonthTransactions = transactions.filter((t) => format(t.date, "yyyy-MM") === format(selectedMonth, "yyyy-MM"));
+    const loadTransactionsForMonth = async () => {
+      const auth = getAuth();
+      const user = auth.currentUser;
 
-    const income = currentMonthTransactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+      if (!user || !selectedMonth) return;
 
-    const expenses = currentMonthTransactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+      const transactionsRef = query(
+        collection(db, "transactions"),
+        where("userId", "==", user.uid),
+        where("monthYear", "==", selectedMonth)
+      );
 
-    setMonthlyData({
-      income,
-      expenses,
-      savings: income - expenses,
-      transactions: currentMonthTransactions,
-    });
-  }, [selectedMonth, transactions]);
+      const snapshot = await getDocs(transactionsRef);
 
-  const availableMonths = [...new Set(transactions.map((t) => format(t.date, "yyyy-MM")))].sort().reverse();
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        date: parseISO(doc.data().date),
+      }));
 
-  const monthOptions = availableMonths.map((date) => {
-    const [year, month] = date.split("-");
+      setTransactions(data);
+
+      // Calcular ingresos, gastos y ahorros
+      const income = data.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+      const expenses = data.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+
+      setMonthlyData({
+        income,
+        expenses,
+        savings: income - expenses,
+        transactions: data,
+      });
+    };
+
+    loadTransactionsForMonth();
+  }, [selectedMonth]);
+
+  // Opciones de meses para el Dropdown
+  const monthOptions = availableMonths.map((monthYear) => {
+    const [year, month] = monthYear.split("-");
     return {
+      value: monthYear,
       label: format(new Date(parseInt(year), parseInt(month) - 1), "MMMM yyyy"),
-      value: date,
     };
   });
 
@@ -78,16 +112,15 @@ export const MonthlyReports = () => {
   };
 
   const amountTemplate = (rowData) => formatCurrency(rowData.amount);
-  const dateTemplate = (rowData) => format(new Date(rowData.date), "dd/MM/yyyy");
+  const dateTemplate = (rowData) => format(rowData.date, "dd/MM/yyyy");
   const typeTemplate = (rowData) => {
     const colorClass = rowData.type === "income" ? "text-green-600" : "text-red-600";
     return <span className={colorClass}>{rowData.type.toUpperCase()}</span>;
   };
 
   const generatePDFName = (userId) => {
-    const timestamp = new Date().getTime(); // Identificador único basado en tiempo
-    const formattedMonth = format(selectedMonth, "MMMM-yyyy"); // Ejemplo: "November-2024"
-    return `PAGATODO-${formattedMonth}-${userId}-${timestamp}.pdf`;
+    const formattedMonth = format(new Date(selectedMonth), "MMMM-yyyy");
+    return `PAGATODO-${formattedMonth}-${userId}.pdf`;
   };
 
   const handleDownloadPDF = () => {
@@ -95,8 +128,8 @@ export const MonthlyReports = () => {
     const user = auth.currentUser;
 
     if (user) {
-      const fileName = generatePDFName(user.uid); // Generar nombre único
-      generatePDF(monthlyData, selectedMonth, fileName); // Generar PDF
+      const fileName = generatePDFName(user.uid);
+      generatePDF(monthlyData, selectedMonth, fileName);
     } else {
       console.error("Usuario no autenticado");
     }
@@ -108,9 +141,9 @@ export const MonthlyReports = () => {
 
       <div className="mb-6">
         <Dropdown
-          value={format(selectedMonth, "yyyy-MM")}
+          value={selectedMonth}
           options={monthOptions}
-          onChange={(e) => setSelectedMonth(new Date(e.value))}
+          onChange={(e) => setSelectedMonth(e.value)}
           placeholder="Seleccionar un mes"
           className="w-full md:w-auto"
         />

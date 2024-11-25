@@ -59,19 +59,22 @@ export const TransactionForm = () => {
     }
 
     if (amount && category && date) {
+      // Generar el campo monthYear
+      const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
       const transaction = {
         userId: user.uid,
         type,
         amount,
         category,
         description,
-        date: date.toISOString(),
+        date: date.toISOString(), // Fecha completa en formato ISO
+        monthYear, // Campo nuevo para filtrar por mes y año
       };
 
       try {
         const docRef = await addDoc(collection(db, "transactions"), transaction);
-        //console.log("Transacción agregada con ID:", docRef.id);
-        addTransaction({ id: docRef.id, ...transaction });
+        console.log("Transacción agregada con ID:", docRef.id);
         setAmount(null);
         setCategory("");
         setDescription("");
