@@ -5,23 +5,27 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
+import { Dialog } from "primereact/dialog";
 import { formatCurrency } from "../utils/format";
 import { format, parseISO } from "date-fns";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, doc, deleteDoc } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 import { getAuth } from "firebase/auth";
 import { generatePDF } from "../utils/pdfGenerator";
+import { EditTransactionForm } from "./EditTransactionForm";
 
 export const MonthlyReports = () => {
-  const [transactions, setTransactions] = useState([]); // Transacciones del mes seleccionado
-  const [availableMonths, setAvailableMonths] = useState([]); // Meses con información
-  const [selectedMonth, setSelectedMonth] = useState(null); // Mes seleccionado
+  const [transactions, setTransactions] = useState([]);
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(null);
   const [monthlyData, setMonthlyData] = useState({
     income: 0,
     expenses: 0,
     savings: 0,
     transactions: [],
   });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [transactionToEdit, setTransactionToEdit] = useState(null);
 
   // Cargar los meses disponibles con información
   useEffect(() => {
@@ -41,8 +45,6 @@ export const MonthlyReports = () => {
       });
 
       const monthsArray = Array.from(uniqueMonths).sort();
-      console.log("Available months:", monthsArray); // Depuración
-
       setAvailableMonths(monthsArray);
 
       if (monthsArray.length > 0) {
@@ -92,6 +94,31 @@ export const MonthlyReports = () => {
     loadTransactionsForMonth();
   }, [selectedMonth]);
 
+  const updateTransactionInState = (updatedTransaction) => {
+    setTransactions((prevTransactions) =>
+      prevTransactions.map((transaction) => (transaction.id === updatedTransaction.id ? updatedTransaction : transaction))
+    );
+  };
+
+  const handleEdit = (transaction) => {
+    setTransactionToEdit(transaction);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, "transactions", id));
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
+    } catch (error) {
+      console.error("Error eliminando transacción:", error);
+    }
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setTransactionToEdit(null);
+  };
+
   // Opciones de meses para el Dropdown
   const monthOptions = availableMonths.map((monthYear) => {
     const [year, month] = monthYear.split("-");
@@ -117,6 +144,13 @@ export const MonthlyReports = () => {
     const colorClass = rowData.type === "income" ? "text-green-600" : "text-red-600";
     return <span className={colorClass}>{rowData.type.toUpperCase()}</span>;
   };
+
+  const actionTemplate = (rowData) => (
+    <div className="flex gap-2">
+      <Button label="Editar" icon="pi pi-pencil" className="p-button-rounded p-button-success" onClick={() => handleEdit(rowData)} />
+      <Button label="Borrar" icon="pi pi-trash" className="p-button-rounded p-button-danger" onClick={() => handleDelete(rowData.id)} />
+    </div>
+  );
 
   const generatePDFName = (userId) => {
     const formattedMonth = format(new Date(selectedMonth), "MMMM-yyyy");
@@ -214,9 +248,25 @@ export const MonthlyReports = () => {
             <Column field="category" header="Categoría" sortable />
             <Column field="description" header="Descripción" sortable />
             <Column field="amount" header="Monto" body={amountTemplate} sortable />
+            <Column body={actionTemplate} />
           </DataTable>
         </Card>
       </div>
+
+      <Dialog
+        header="Editar Transacción"
+        visible={isModalOpen}
+        style={{ width: "40vw" }}
+        onHide={handleModalClose}
+        breakpoints={{
+          "960px": "75vw", // En pantallas menores a 960px, el ancho será el 75% del viewport
+          "640px": "90vw", // En pantallas menores a 640px, el ancho será el 90% del viewport
+        }}
+      >
+        {transactionToEdit && (
+          <EditTransactionForm transaction={transactionToEdit} onClose={handleModalClose} onTransactionUpdated={updateTransactionInState} />
+        )}
+      </Dialog>
     </div>
   );
 };
