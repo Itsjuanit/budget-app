@@ -117,7 +117,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
 
         <div className="flex flex-col gap-2">
           <label className="font-medium">Fecha</label>
-          <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" />
+          <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" dateFormat="dd/mm/yy" locale="es" />
           {errors.date && <Message severity="error" text={errors.date} />}
         </div>
 
