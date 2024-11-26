@@ -198,11 +198,10 @@ export const Dashboard = () => {
           </ul>
           <Paginator
             first={first}
-            rows={rows}
-            totalRecords={transactions.length}
-            rowsPerPageOptions={[5, 10, 20]}
+            rows={10}
+            totalRecords={50}
             onPageChange={onPageChange}
-            className="mt-4"
+            template={{ layout: "PrevPageLink CurrentPageReport NextPageLink" }}
           />
         </Card>
       </div>
