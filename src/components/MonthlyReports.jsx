@@ -5,7 +5,7 @@ import { Column } from "primereact/column";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
-import { Toast } from "primereact/toast"; // Importa Toast
+import { Toast } from "primereact/toast";
 import { formatCurrency } from "../utils/format";
 import { format } from "date-fns";
 import { EditTransactionForm } from "./EditTransactionForm";
@@ -25,7 +25,7 @@ export const MonthlyReports = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
-  const toast = useRef(null); // Referencia para Toast
+  const toast = useRef(null);
 
   useEffect(() => {
     if (selectedMonth) {
@@ -90,7 +90,6 @@ export const MonthlyReports = () => {
       return;
     }
 
-    // Filtrar transacciones válidas
     const sanitizedTransactions = transactions.filter((t) => t.date && !isNaN(new Date(t.date).getTime()));
 
     const formattedMonth = format(new Date(selectedMonth), "MMMM-yyyy");
@@ -107,7 +106,7 @@ export const MonthlyReports = () => {
     };
 
     try {
-      generatePDF(pdfContent, selectedMonth, "UsuarioID"); // Ajustar UserID según corresponda
+      generatePDF(pdfContent, selectedMonth, "UsuarioID");
       toast.current.show({
         severity: "success",
         summary: "Éxito",
@@ -143,7 +142,6 @@ export const MonthlyReports = () => {
 
   return (
     <div className="p-6">
-      {/* Componente Toast */}
       <Toast ref={toast} />
 
       <h1 className="text-3xl font-bold mb-6">Reporte mensual</h1>
@@ -196,7 +194,17 @@ export const MonthlyReports = () => {
         <h3 className="text-xl font-semibold mb-4">Detalles de transacciones</h3>
         <DataTable value={transactions} paginator rows={5} sortField="date" sortOrder={-1} className="p-datatable-sm">
           <Column field="date" header="Fecha" body={(rowData) => format(new Date(rowData.date), "dd/MM/yyyy")} sortable />
-          <Column field="type" header="Tipo" body={(rowData) => rowData.type.toUpperCase()} sortable />
+          <Column
+            field="type"
+            header="Tipo"
+            body={(rowData) => (
+              <span className={rowData.type === "expense" ? "text-red-600" : "text-green-600"}>
+                {rowData.type === "expense" ? "GASTO" : "INGRESO"}
+              </span>
+            )}
+            sortable
+          />
+
           <Column field="category" header="Categoría" sortable />
           <Column field="description" header="Descripción" sortable />
           <Column field="amount" header="Monto" body={(rowData) => formatCurrency(rowData.amount)} sortable />
