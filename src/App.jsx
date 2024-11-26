@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
-import { PrimeReactProvider, locale, addLocale } from "primereact/api";
+import { PrimeReactProvider } from "primereact/api";
 import { Dashboard } from "./components/Dashboard";
 import { TransactionForm } from "./components/TransactionForm";
 import { MonthlyReports } from "./components/MonthlyReports";
@@ -16,6 +16,20 @@ import { configurePrimeReactLocale } from "./utils/primeReactLocale";
 configurePrimeReactLocale();
 
 function App() {
+  // Registrar el Service Worker
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", async () => {
+        try {
+          const registration = await navigator.serviceWorker.register("/sw.js");
+          console.log("Service Worker registrado con éxito:", registration);
+        } catch (error) {
+          console.error("Error al registrar el Service Worker:", error);
+        }
+      });
+    }
+  }, []);
+
   return (
     <AuthProvider>
       <PrimeReactProvider>
