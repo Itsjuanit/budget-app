@@ -12,7 +12,7 @@ export const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const toast = useRef(null); // Referencia para el Toast
+  const toast = useRef(null);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -30,7 +30,7 @@ export const Login = () => {
       await signInWithEmailAndPassword(auth, email, password);
       setErrorMessage("");
       toast.current.show({ severity: "success", summary: "Inicio exitoso", detail: "Bienvenido de nuevo.", life: 3000 });
-      navigate("/"); // Redirigir al Dashboard
+      navigate("/");
     } catch (error) {
       setErrorMessage("Credenciales incorrectas. Inténtalo nuevamente.");
       toast.current.show({ severity: "error", summary: "Error", detail: "Credenciales incorrectas.", life: 3000 });

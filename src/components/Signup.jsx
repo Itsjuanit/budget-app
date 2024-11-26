@@ -30,7 +30,6 @@ export const Signup = () => {
     const auth = getAuth();
 
     try {
-      // Crear usuario con Firebase Authentication
       await createUserWithEmailAndPassword(auth, email, password);
       toast.current.show({
         severity: "success",
@@ -74,7 +73,7 @@ export const Signup = () => {
 
   return (
     <div className="flex justify-content-center">
-      <Toast ref={toast} /> {/* Componente Toast */}
+      <Toast ref={toast} />
       <Card title="Crear Cuenta" style={{ width: "25rem" }}>
         <form onSubmit={handleSubmit} className="p-fluid">
           <div className="field">
