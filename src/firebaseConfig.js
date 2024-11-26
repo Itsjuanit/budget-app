@@ -29,10 +29,10 @@ const auth = getAuth(app);
 // Configuración de persistencia de sesión
 setPersistence(auth, browserLocalPersistence)
   .then(() => {
-    console.log("Persistencia configurada en 'localStorage'.");
+    //console.log("Persistencia configurada en 'localStorage'.");
   })
   .catch((error) => {
-    console.error("Error al configurar la persistencia:", error);
+    //console.error("Error al configurar la persistencia:", error);
   });
 
 export { app, db, analytics, auth };
