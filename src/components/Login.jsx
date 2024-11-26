@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { Password } from "primereact/password";
 import { Card } from "primereact/card";
-import { Message } from "primereact/message";
+import { Toast } from "primereact/toast";
 import { Link, useNavigate } from "react-router-dom";
 import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { useAuth } from "../auth/AuthContext";
@@ -12,15 +12,15 @@ export const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-
+  const toast = useRef(null); // Referencia para el Toast
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!email || !password) {
       setErrorMessage("Por favor, complete todos los campos.");
+      toast.current.show({ severity: "warn", summary: "Campos incompletos", detail: "Por favor, complete todos los campos.", life: 3000 });
       return;
     }
 
@@ -28,12 +28,12 @@ export const Login = () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      //console.log("Usuario autenticado:", email);
       setErrorMessage("");
+      toast.current.show({ severity: "success", summary: "Inicio exitoso", detail: "Bienvenido de nuevo.", life: 3000 });
       navigate("/"); // Redirigir al Dashboard
     } catch (error) {
-      //console.error("Error iniciando sesión:", error.message);
       setErrorMessage("Credenciales incorrectas. Inténtalo nuevamente.");
+      toast.current.show({ severity: "error", summary: "Error", detail: "Credenciales incorrectas.", life: 3000 });
     }
   };
 
@@ -43,17 +43,18 @@ export const Login = () => {
 
     try {
       await signInWithPopup(auth, provider);
-      //console.log("Usuario autenticado con Google");
       setErrorMessage("");
+      toast.current.show({ severity: "success", summary: "Inicio exitoso", detail: "Has iniciado sesión con Google.", life: 3000 });
       navigate("/"); // Redirigir al Dashboard
     } catch (error) {
-      //console.error("Error iniciando sesión con Google:", error.message);
       setErrorMessage("Error al iniciar sesión con Google. Inténtalo nuevamente.");
+      toast.current.show({ severity: "error", summary: "Error", detail: "Error al iniciar sesión con Google.", life: 3000 });
     }
   };
 
   return (
     <div className="flex justify-content-center">
+      <Toast ref={toast} /> {/* Componente Toast */}
       <Card title="Iniciar Sesión" style={{ width: "25rem" }}>
         <form onSubmit={handleSubmit} className="p-fluid">
           <div className="field">

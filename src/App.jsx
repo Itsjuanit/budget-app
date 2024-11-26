@@ -10,22 +10,10 @@ import { TabView, TabPanel } from "primereact/tabview";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { TransactionsProvider } from "./context/TransactionsProvider";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
+import { configurePrimeReactLocale } from "./utils/primeReactLocale";
 
-addLocale("es", {
-  firstDayOfWeek: 1,
-  dayNames: ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"],
-  dayNamesShort: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"],
-  dayNamesMin: ["D", "L", "M", "X", "J", "V", "S"],
-  monthNames: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
-  monthNamesShort: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
-  today: "Hoy",
-  clear: "Limpiar",
-  dateFormat: "dd/mm/yy",
-  weekHeader: "Sem",
-  chooseDate: "Seleccionar fecha",
-});
-
-locale("es");
+// Configurar PrimeReact Locale
+configurePrimeReactLocale();
 
 function App() {
   return (
