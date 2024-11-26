@@ -4,6 +4,7 @@ import { Chart } from "primereact/chart";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
+import { Paginator } from "primereact/paginator";
 import { useFinanceStore } from "../store/useFinanceStore";
 import { formatCurrency } from "../utils/format";
 import { Wallet, TrendingUp, PiggyBank } from "lucide-react";
@@ -23,6 +24,8 @@ export const Dashboard = () => {
   const [expensesByCategory, setExpensesByCategory] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
+  const [first, setFirst] = useState(0);
+  const [rows, setRows] = useState(5);
 
   // Ref para el Toast
   const toast = useRef(null);
@@ -115,6 +118,11 @@ export const Dashboard = () => {
     }
   };
 
+  const onPageChange = (event) => {
+    setFirst(event.first);
+    setRows(event.rows);
+  };
+
   return (
     <div className="p-6">
       <Toast ref={toast} />
@@ -164,7 +172,7 @@ export const Dashboard = () => {
         <Card className="shadow-lg">
           <h3 className="text-xl font-semibold mb-4">Transacciones recientes</h3>
           <ul className="space-y-2">
-            {transactions.slice(0, 5).map((transaction) => (
+            {transactions.slice(first, first + rows).map((transaction) => (
               <li key={transaction.id} className="flex justify-between items-center p-2 border-b last:border-0">
                 <div>
                   <span className="font-medium">{transaction.description}</span>
@@ -188,6 +196,14 @@ export const Dashboard = () => {
               </li>
             ))}
           </ul>
+          <Paginator
+            first={first}
+            rows={rows}
+            totalRecords={transactions.length}
+            rowsPerPageOptions={[5, 10, 20]}
+            onPageChange={onPageChange}
+            className="mt-4"
+          />
         </Card>
       </div>
 
