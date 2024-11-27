@@ -27,5 +27,8 @@ export const categories = {
     { label: "Dibujo", value: "dibujo" },
     { label: "Rugby", value: "rugby" },
     { label: "Círculo", value: "circulo" },
+    { label: "Salidas", value: "salidas" },
+    { label: "Compras", value: "compras" },
+    { label: "Regalos", value: "regalos" },
   ],
 };
