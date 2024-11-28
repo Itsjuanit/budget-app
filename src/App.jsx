@@ -11,13 +11,15 @@ import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { TransactionsProvider } from "./context/TransactionsProvider";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { configurePrimeReactLocale } from "./utils/primeReactLocale";
+import { initializePWAInstallPrompt } from "./swHandler"; // Importa la función
 
 // Configurar PrimeReact Locale
 configurePrimeReactLocale();
 
 function App() {
-  // Registrar el Service Worker
+  // Registrar el Service Worker y configurar el aviso PWA
   useEffect(() => {
+    // Registrar el Service Worker
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", async () => {
         try {
@@ -28,6 +30,9 @@ function App() {
         }
       });
     }
+
+    // Inicializar el manejo del aviso de instalación PWA
+    initializePWAInstallPrompt();
   }, []);
 
   return (

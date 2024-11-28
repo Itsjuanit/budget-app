@@ -27,15 +27,26 @@ export const Dashboard = () => {
   const [first, setFirst] = useState(0);
   const [rows, setRows] = useState(5);
 
-  // Ref para el Toast
   const toast = useRef(null);
 
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
 
+    const currentMonthYear = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    const lastProcessedMonth = localStorage.getItem("lastProcessedMonth");
+
+    if (lastProcessedMonth !== currentMonthYear) {
+      // Lógica opcional para manejar el cierre del mes anterior si lo necesitas
+      localStorage.setItem("lastProcessedMonth", currentMonthYear);
+    }
+
     if (user) {
-      const userTransactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid));
+      const userTransactionsRef = query(
+        collection(db, "transactions"),
+        where("userId", "==", user.uid),
+        where("monthYear", "==", currentMonthYear) // Filtrar por el mes actual
+      );
 
       const unsubscribe = onSnapshot(userTransactionsRef, (snapshot) => {
         const data = snapshot.docs.map((doc) => ({

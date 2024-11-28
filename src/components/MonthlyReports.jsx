@@ -198,7 +198,7 @@ export const MonthlyReports = () => {
             field="type"
             header="Tipo"
             body={(rowData) => (
-              <span className={rowData.type === "expense" ? "text-red-600" : "text-green-600"}>
+              <span className={`font-bold ${rowData.type === "expense" ? "text-red-600" : "text-green-600"}`}>
                 {rowData.type === "expense" ? "GASTO" : "INGRESO"}
               </span>
             )}
