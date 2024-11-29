@@ -4,9 +4,9 @@ import { Chart } from "primereact/chart";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
+import { Paginator } from "primereact/paginator";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { Tooltip } from "primereact/tooltip";
 import { formatCurrency } from "../utils/format";
 import { Wallet, TrendingUp, PiggyBank } from "lucide-react";
 import { db } from "@/firebaseConfig";
@@ -23,22 +23,28 @@ export const Dashboard = () => {
   const [expensesByCategory, setExpensesByCategory] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
   const [first, setFirst] = useState(0);
-  const [rows, setRows] = useState(5);
+  const [rows, setRows] = useState(10); // Máximo de 10 entradas por página para mobile
 
   const toast = useRef(null);
 
-  // Cargar transacciones del mes actual
+  // Detectar si estamos en una pantalla pequeña
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768); // Menor a 768px será considerado móvil
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
 
     const currentMonthYear = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-    const lastProcessedMonth = localStorage.getItem("lastProcessedMonth");
-
-    if (lastProcessedMonth !== currentMonthYear) {
-      localStorage.setItem("lastProcessedMonth", currentMonthYear);
-    }
 
     if (user) {
       const userTransactionsRef = query(
@@ -53,7 +59,6 @@ export const Dashboard = () => {
           ...doc.data(),
         }));
 
-        // Ordenar por fecha descendente
         data.sort((a, b) => new Date(b.date) - new Date(a.date));
         setTransactions(data);
       });
@@ -62,7 +67,6 @@ export const Dashboard = () => {
     }
   }, []);
 
-  // Calcular gastos, ahorros y agrupar por categoría
   useEffect(() => {
     const expenseTransactions = transactions.filter((t) => t.type === "expense");
 
@@ -137,10 +141,88 @@ export const Dashboard = () => {
     setRows(event.rows);
   };
 
+  const renderCards = () => {
+    const start = first;
+    const end = first + rows;
+    const currentTransactions = transactions.slice(start, end);
+
+    return (
+      <div className="flex flex-col gap-4">
+        {currentTransactions.map((transaction) => (
+          <div key={transaction.id} className="border p-4 rounded-md shadow-md bg-white">
+            <p>
+              <strong>Fecha:</strong> {format(new Date(transaction.date), "dd/MM/yyyy")}
+            </p>
+            <p>
+              <strong>Descripción:</strong> {transaction.description}
+            </p>
+            <p>
+              <strong>Monto:</strong> {formatCurrency(transaction.amount)}
+            </p>
+            <div className="flex gap-2 mt-2">
+              <Button
+                label="Editar"
+                icon="pi pi-pencil"
+                className="p-button-rounded p-button-text p-button-sm"
+                onClick={() => handleEdit(transaction)}
+              />
+              <Button
+                label="Eliminar"
+                icon="pi pi-trash"
+                className="p-button-rounded p-button-text p-button-sm"
+                onClick={() => handleDelete(transaction.id)}
+              />
+            </div>
+          </div>
+        ))}
+        <Paginator
+          first={first}
+          rows={rows}
+          totalRecords={transactions.length}
+          rowsPerPageOptions={[5, 10, 20]}
+          onPageChange={onPageChange}
+        />
+      </div>
+    );
+  };
+
+  const renderTable = () => (
+    <DataTable
+      value={transactions}
+      paginator
+      rows={10}
+      rowsPerPageOptions={[5, 10, 25, 50]}
+      className="p-datatable-sm"
+      style={{ borderCollapse: "separate", width: "100%" }}
+    >
+      <Column field="date" header="Fecha" body={(rowData) => format(new Date(rowData.date), "dd/MM/yyyy")} sortable />
+      <Column field="description" header="Descripción" sortable />
+      <Column field="amount" header="Monto" body={(rowData) => formatCurrency(rowData.amount)} sortable />
+      <Column
+        header="Acciones"
+        body={(rowData) => (
+          <div className="flex gap-2">
+            <Button
+              label="Editar"
+              icon="pi pi-pencil"
+              className="p-button-rounded p-button-text p-button-sm"
+              onClick={() => handleEdit(rowData)}
+            />
+            <Button
+              label="Eliminar"
+              icon="pi pi-trash"
+              className="p-button-rounded p-button-text p-button-sm"
+              onClick={() => handleDelete(rowData.id)}
+            />
+          </div>
+        )}
+      />
+    </DataTable>
+  );
+
   return (
     <div className="p-6">
       <Toast ref={toast} />
-
       <h1 className="text-3xl font-bold mb-6">Análisis del gasto</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -184,51 +266,7 @@ export const Dashboard = () => {
         </Card>
         <Card className="shadow-lg">
           <h3 className="text-xl font-semibold mb-4">Transacciones recientes</h3>
-          <DataTable
-            value={transactions.slice(first, first + rows)}
-            paginator
-            rows={10}
-            totalRecords={transactions.length}
-            onPage={(e) => {
-              setFirst(e.first);
-              setRows(e.rows);
-            }}
-            className="p-datatable-sm"
-            responsiveLayout="stack"
-          >
-            <Column
-              field="date"
-              header="Fecha"
-              body={(rowData) => (
-                <>
-                  <span className="block md:hidden" data-pr-tooltip={format(new Date(rowData.date), "dd/MM/yyyy")}>
-                    {format(new Date(rowData.date), "dd")}
-                  </span>
-                  <span className="hidden md:block" data-pr-tooltip={format(new Date(rowData.date), "dd/MM/yyyy")}>
-                    {format(new Date(rowData.date), "dd/MM/yyyy")}
-                  </span>
-                  <Tooltip target="span[data-pr-tooltip]" />
-                </>
-              )}
-              sortable
-            />
-            <Column field="description" header="Desc" sortable />
-            <Column field="amount" header="Monto" body={(rowData) => formatCurrency(rowData.amount)} sortable />
-            <Column
-              body={(rowData) => (
-                <div className="flex gap-1">
-                  <Button icon="pi pi-pencil" className="p-button-rounded p-button-text p-button-sm" onClick={() => handleEdit(rowData)} />
-                  <Button
-                    icon="pi pi-trash"
-                    className="p-button-rounded p-button-text p-button-sm"
-                    onClick={() => handleDelete(rowData.id)}
-                  />
-                </div>
-              )}
-              header="Acciones"
-              className="hidden md:table-cell"
-            />
-          </DataTable>
+          {isMobile ? renderCards() : renderTable()}
         </Card>
       </div>
 
