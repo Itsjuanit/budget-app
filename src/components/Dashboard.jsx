@@ -4,7 +4,9 @@ import { Chart } from "primereact/chart";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
-import { Paginator } from "primereact/paginator";
+import { DataTable } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { Tooltip } from "primereact/tooltip";
 import { useFinanceStore } from "../store/useFinanceStore";
 import { formatCurrency } from "../utils/format";
 import { Wallet, TrendingUp, PiggyBank } from "lucide-react";
@@ -37,7 +39,6 @@ export const Dashboard = () => {
     const lastProcessedMonth = localStorage.getItem("lastProcessedMonth");
 
     if (lastProcessedMonth !== currentMonthYear) {
-      // Lógica opcional para manejar el cierre del mes anterior si lo necesitas
       localStorage.setItem("lastProcessedMonth", currentMonthYear);
     }
 
@@ -183,41 +184,53 @@ export const Dashboard = () => {
           <h3 className="text-xl font-semibold mb-4">Gastos por categoría</h3>
           <Chart type="pie" data={chartData} options={chartOptions} style={{ height: "300px" }} />
         </Card>
-
         <Card className="shadow-lg">
           <h3 className="text-xl font-semibold mb-4">Transacciones recientes</h3>
-          <ul className="space-y-2">
-            {transactions.slice(first, first + rows).map((transaction) => (
-              <li key={transaction.id} className="flex justify-between items-center p-2 border-b last:border-0">
-                <div>
-                  <span className="font-medium">{transaction.description}</span>
-                  <span className="ml-2">
-                    <small className="text-gray-500">{format(new Date(transaction.date), "dd/MM/yyyy")}</small>
+          <DataTable
+            value={transactions.slice(first, first + rows)}
+            paginator
+            rows={10}
+            totalRecords={transactions.length}
+            onPage={(e) => {
+              setFirst(e.first);
+              setRows(e.rows);
+            }}
+            className="p-datatable-sm"
+            responsiveLayout="stack"
+          >
+            <Column
+              field="date"
+              header="Fecha"
+              body={(rowData) => (
+                <>
+                  <span className="block md:hidden" data-pr-tooltip={format(new Date(rowData.date), "dd/MM/yyyy")}>
+                    {format(new Date(rowData.date), "dd")}
                   </span>
-                  <p className="text-gray-600">{formatCurrency(transaction.amount)}</p>
-                </div>
+                  <span className="hidden md:block" data-pr-tooltip={format(new Date(rowData.date), "dd/MM/yyyy")}>
+                    {format(new Date(rowData.date), "dd/MM/yyyy")}
+                  </span>
+                  <Tooltip target="span[data-pr-tooltip]" />
+                </>
+              )}
+              sortable
+            />
+            <Column field="description" header="Desc" sortable />
+            <Column field="amount" header="Monto" body={(rowData) => formatCurrency(rowData.amount)} sortable />
+            <Column
+              body={(rowData) => (
                 <div className="flex gap-1">
-                  <Button
-                    icon="pi pi-pencil"
-                    className="p-button-rounded p-button-text p-button-sm"
-                    onClick={() => handleEdit(transaction)}
-                  />
+                  <Button icon="pi pi-pencil" className="p-button-rounded p-button-text p-button-sm" onClick={() => handleEdit(rowData)} />
                   <Button
                     icon="pi pi-trash"
                     className="p-button-rounded p-button-text p-button-sm"
-                    onClick={() => handleDelete(transaction.id)}
+                    onClick={() => handleDelete(rowData.id)}
                   />
                 </div>
-              </li>
-            ))}
-          </ul>
-          <Paginator
-            first={first}
-            rows={10}
-            totalRecords={50}
-            onPageChange={onPageChange}
-            template={{ layout: "PrevPageLink CurrentPageReport NextPageLink" }}
-          />
+              )}
+              header="Acciones"
+              className="hidden md:table-cell"
+            />
+          </DataTable>
         </Card>
       </div>
 
