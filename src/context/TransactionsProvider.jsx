@@ -10,7 +10,6 @@ export const TransactionsProvider = ({ children }) => {
   const [availableMonths, setAvailableMonths] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(null);
 
-  // Carga inicial de meses disponibles
   useEffect(() => {
     const loadAvailableMonths = async () => {
       try {
@@ -20,6 +19,7 @@ export const TransactionsProvider = ({ children }) => {
         if (!user) return;
 
         const transactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid), orderBy("monthYear"));
+
         const snapshot = await getDocs(transactionsRef);
 
         const uniqueMonths = new Set();
@@ -30,7 +30,6 @@ export const TransactionsProvider = ({ children }) => {
         const monthsArray = Array.from(uniqueMonths).sort();
         setAvailableMonths(monthsArray);
 
-        // Seleccionar el mes más reciente si no hay uno seleccionado
         if (monthsArray.length > 0 && !selectedMonth) {
           setSelectedMonth(monthsArray[monthsArray.length - 1]);
         }
@@ -42,7 +41,6 @@ export const TransactionsProvider = ({ children }) => {
     loadAvailableMonths();
   }, [selectedMonth]);
 
-  // Cargar transacciones del mes seleccionado
   const loadTransactionsForMonth = async (month) => {
     try {
       const auth = getAuth();
@@ -52,10 +50,19 @@ export const TransactionsProvider = ({ children }) => {
       const transactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid), where("monthYear", "==", month));
 
       const snapshot = await getDocs(transactionsRef);
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const data = snapshot.docs.map((doc) => {
+        const transaction = doc.data();
+        const remainingAmount =
+          transaction.type === "expense" && transaction.category === "tarjeta-credito" && transaction.installmentsRemaining > 0
+            ? (transaction.amount * (1 + transaction.interest / 100)) / transaction.installments
+            : 0;
+
+        return {
+          id: doc.id,
+          ...transaction,
+          remainingAmount,
+        };
+      });
 
       setTransactions(data);
     } catch (error) {
@@ -75,7 +82,6 @@ export const TransactionsProvider = ({ children }) => {
     }
   };
 
-  // Eliminar una transacción
   const deleteTransaction = async (id) => {
     try {
       await deleteDoc(doc(db, "transactions", id));
@@ -102,4 +108,10 @@ export const TransactionsProvider = ({ children }) => {
   );
 };
 
-export const useTransactions = () => useContext(TransactionsContext);
+export const useTransactions = () => {
+  const context = useContext(TransactionsContext);
+  if (!context) {
+    throw new Error("useTransactions debe usarse dentro de TransactionsProvider");
+  }
+  return context;
+};

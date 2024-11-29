@@ -103,6 +103,10 @@ export const MonthlyReports = () => {
       savings:
         sanitizedTransactions.reduce((acc, t) => (t.type === "income" ? acc + t.amount : acc), 0) -
         sanitizedTransactions.reduce((acc, t) => (t.type === "expense" ? acc + t.amount : acc), 0),
+      remainingInstallments: sanitizedTransactions.reduce(
+        (acc, t) => acc + (t.category === "tarjeta-credito" ? (t.installmentsRemaining * t.amount) / t.installments : 0),
+        0
+      ),
     };
 
     try {
@@ -212,10 +216,18 @@ export const MonthlyReports = () => {
             )}
             sortable
           />
-
           <Column field="category" header="Categoría" sortable />
           <Column field="description" header="Descripción" sortable />
           <Column field="amount" header="Monto" body={(rowData) => formatCurrency(rowData.amount)} sortable />
+          {transactions.some((t) => t.category === "tarjeta-credito") && (
+            <Column
+              field="installmentsRemaining"
+              header="Cuotas Restantes"
+              body={(rowData) =>
+                rowData.category === "tarjeta-credito" ? `${rowData.installmentsRemaining} / ${rowData.installments}` : "-"
+              }
+            />
+          )}
           <Column
             body={(rowData) => (
               <div className="flex gap-2">

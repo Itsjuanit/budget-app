@@ -7,19 +7,16 @@ import { Toast } from "primereact/toast";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Tooltip } from "primereact/tooltip";
-import { useFinanceStore } from "../store/useFinanceStore";
 import { formatCurrency } from "../utils/format";
 import { Wallet, TrendingUp, PiggyBank } from "lucide-react";
 import { db } from "@/firebaseConfig";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where, doc, deleteDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { useTransactions } from "../context/TransactionsProvider";
+import { categories } from "../utils/categories";
 import { EditTransactionForm } from "./EditTransactionForm";
 import { format } from "date-fns";
 
 export const Dashboard = () => {
-  const { categories } = useFinanceStore();
-  const { deleteTransaction } = useTransactions();
   const [transactions, setTransactions] = useState([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
   const [monthlySavings, setMonthlySavings] = useState(0);
@@ -31,6 +28,7 @@ export const Dashboard = () => {
 
   const toast = useRef(null);
 
+  // Cargar transacciones del mes actual
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
@@ -46,7 +44,7 @@ export const Dashboard = () => {
       const userTransactionsRef = query(
         collection(db, "transactions"),
         where("userId", "==", user.uid),
-        where("monthYear", "==", currentMonthYear) // Filtrar por el mes actual
+        where("monthYear", "==", currentMonthYear)
       );
 
       const unsubscribe = onSnapshot(userTransactionsRef, (snapshot) => {
@@ -57,7 +55,6 @@ export const Dashboard = () => {
 
         // Ordenar por fecha descendente
         data.sort((a, b) => new Date(b.date) - new Date(a.date));
-
         setTransactions(data);
       });
 
@@ -65,16 +62,16 @@ export const Dashboard = () => {
     }
   }, []);
 
+  // Calcular gastos, ahorros y agrupar por categoría
   useEffect(() => {
     const expenseTransactions = transactions.filter((t) => t.type === "expense");
 
-    const expensesGroupedByCategory = categories
-      .filter((category) => category.type === "expense")
+    const expensesGroupedByCategory = categories.expense
       .map((category) => {
         const total = expenseTransactions.filter((t) => t.category === category.value).reduce((sum, t) => sum + t.amount, 0);
 
         return {
-          category: category.name,
+          category: category.label,
           amount: total,
           color: category.color,
         };
@@ -88,7 +85,7 @@ export const Dashboard = () => {
 
     const totalIncome = transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
     setMonthlySavings(totalIncome - totalExpenses);
-  }, [transactions, categories]);
+  }, [transactions]);
 
   const chartData = {
     labels: expensesByCategory.map((item) => item.category),
@@ -116,7 +113,8 @@ export const Dashboard = () => {
 
   const handleDelete = async (id) => {
     try {
-      await deleteTransaction(id);
+      const transactionDocRef = doc(db, "transactions", id);
+      await deleteDoc(transactionDocRef);
       toast.current.show({
         severity: "success",
         summary: "Éxito",

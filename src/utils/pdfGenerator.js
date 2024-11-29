@@ -33,7 +33,7 @@ export const generatePDF = (data, selectedMonth, userId) => {
   const doc = new jsPDF();
 
   // Crear título
-  doc.text(`Reporte Mensual - ${format(selectedMonth, "MMMM yyyy")}`, 14, 15);
+  doc.text(`Reporte Mensual - ${format(new Date(selectedMonth), "MMMM yyyy")}`, 14, 15);
 
   // Ordenar las transacciones por fecha (más antigua a más nueva)
   const sortedTransactions = [...data.transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -64,6 +64,12 @@ export const generatePDF = (data, selectedMonth, userId) => {
     startY: 20, // Posición inicial debajo del título
   });
 
+  // Calcular las cuotas restantes para las transacciones de tipo "tarjeta de crédito"
+  const creditCardTransactions = data.transactions.filter((t) => t.category === "tarjeta-credito");
+  const totalRemainingInstallments = creditCardTransactions.reduce((acc, t) => {
+    return acc + (t.installmentsRemaining || 0) * (t.amount / t.installments);
+  }, 0);
+
   // Obtener la posición final de la tabla para agregar estadísticas
   const finalY = doc.autoTable.previous.finalY;
 
@@ -71,6 +77,7 @@ export const generatePDF = (data, selectedMonth, userId) => {
   doc.text(`Ingresos Totales: ${formatCurrency(data.income)}`, 14, finalY + 10);
   doc.text(`Gastos Totales: ${formatCurrency(data.expenses)}`, 14, finalY + 20);
   doc.text(`Ahorros Netos: ${formatCurrency(data.savings)}`, 14, finalY + 30);
+  doc.text(`Cuotas Pendientes (Tarjetas): ${formatCurrency(totalRemainingInstallments)}`, 14, finalY + 40);
 
   // Descargar el archivo PDF con el nombre generado
   doc.save(fileName);

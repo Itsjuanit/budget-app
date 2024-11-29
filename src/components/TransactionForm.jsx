@@ -6,21 +6,21 @@ import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { Message } from "primereact/message";
 import { Toast } from "primereact/toast"; // Importa Toast
-import { useFinanceStore } from "../store/useFinanceStore";
 import { db } from "@/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { categories } from "../utils/categories";
 
 export const TransactionForm = () => {
-  const { addTransaction } = useFinanceStore();
   const [type, setType] = useState("expense");
   const [amount, setAmount] = useState(null);
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
+  const [installments, setInstallments] = useState(1); // Cuotas
+  const [interest, setInterest] = useState(0); // Interés
   const [errors, setErrors] = useState({});
-  const toast = useRef(null); // Referencia para el Toast
+  const toast = useRef(null);
 
   const validateFields = () => {
     const newErrors = {};
@@ -28,6 +28,7 @@ export const TransactionForm = () => {
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
+    if (category === "tarjeta-credito" && installments < 1) newErrors.installments = "Las cuotas deben ser al menos 1.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -40,7 +41,6 @@ export const TransactionForm = () => {
     const user = auth.currentUser;
 
     if (!user) {
-      console.error("Usuario no autenticado");
       toast.current.show({
         severity: "error",
         summary: "Error",
@@ -60,6 +60,9 @@ export const TransactionForm = () => {
       description,
       date: date.toISOString(),
       monthYear,
+      installments: category === "tarjeta-credito" ? installments : 0,
+      interest: category === "tarjeta-credito" ? interest : 0,
+      installmentsRemaining: category === "tarjeta-credito" ? installments : 0,
     };
 
     try {
@@ -69,6 +72,8 @@ export const TransactionForm = () => {
       setCategory("");
       setDescription("");
       setDate(new Date());
+      setInstallments(1);
+      setInterest(0);
       setErrors({});
       toast.current.show({
         severity: "success",
@@ -89,7 +94,6 @@ export const TransactionForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
-      {/* Componente Toast */}
       <Toast ref={toast} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -139,6 +143,28 @@ export const TransactionForm = () => {
           <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" dateFormat="dd/mm/yy" locale="es" />
           {errors.date && <Message severity="error" text={errors.date} />}
         </div>
+
+        {category === "tarjeta-credito" && (
+          <>
+            <div className="flex flex-col gap-2">
+              <label className="font-medium">Cuotas</label>
+              <InputNumber value={installments} onValueChange={(e) => setInstallments(e.value)} min={1} className="w-full" />
+              {errors.installments && <Message severity="error" text={errors.installments} />}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="font-medium">Interés (%)</label>
+              <InputNumber
+                value={interest}
+                onValueChange={(e) => setInterest(e.value)}
+                min={0}
+                mode="decimal"
+                suffix="%"
+                className="w-full"
+              />
+            </div>
+          </>
+        )}
 
         <div className="flex flex-col gap-2 md:col-span-2">
           <label className="font-medium">Descripción</label>

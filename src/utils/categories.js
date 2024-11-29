@@ -1,12 +1,13 @@
-// utils/categories.js
+import { assignColorsToCategories } from "./colors";
+
 export const categories = {
-  income: [
+  income: assignColorsToCategories([
     { label: "Salario", value: "salario" },
     { label: "Freelance", value: "freelance" },
     { label: "Inversiones", value: "inversiones" },
     { label: "Otros ingresos", value: "otros-ingresos" },
-  ],
-  expense: [
+  ]),
+  expense: assignColorsToCategories([
     { label: "Servicios (Luz, Gas, Agua)", value: "servicios" },
     { label: "Internet", value: "internet" },
     { label: "Celulares", value: "celulares" },
@@ -30,5 +31,5 @@ export const categories = {
     { label: "Salidas", value: "salidas" },
     { label: "Compras", value: "compras" },
     { label: "Regalos", value: "regalos" },
-  ],
+  ]),
 };

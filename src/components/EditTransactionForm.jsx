@@ -17,8 +17,11 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
   const [category, setCategory] = useState(transaction?.category || "");
   const [description, setDescription] = useState(transaction?.description || "");
   const [date, setDate] = useState(transaction ? new Date(transaction.date) : new Date());
+  const [installments, setInstallments] = useState(transaction?.installments || 1);
+  const [interest, setInterest] = useState(transaction?.interest || 0);
+  const [installmentsRemaining, setInstallmentsRemaining] = useState(transaction?.installmentsRemaining || installments);
   const [errors, setErrors] = useState({});
-  const toast = useRef(null); // Referencia para Toast
+  const toast = useRef(null);
 
   const validateFields = () => {
     const newErrors = {};
@@ -26,6 +29,10 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
+    if (category === "tarjeta-credito") {
+      if (!installments || installments < 1) newErrors.installments = "El número de cuotas debe ser mayor a 0.";
+      if (interest < 0) newErrors.interest = "El interés no puede ser negativo.";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -42,11 +49,15 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
       category,
       description,
       date: date.toISOString(),
+      ...(category === "tarjeta-credito" && {
+        installments,
+        interest,
+        installmentsRemaining,
+      }),
     };
 
     try {
       await updateTransaction(updatedTransaction);
-      console.log("Transacción actualizada:", updatedTransaction.id);
 
       toast.current.show({
         severity: "success",
@@ -70,7 +81,6 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
 
   return (
     <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
-      {/* Componente Toast */}
       <Toast ref={toast} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -131,6 +141,30 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
           />
           {errors.description && <Message severity="error" text={errors.description} />}
         </div>
+
+        {category === "tarjeta-credito" && (
+          <>
+            <div className="flex flex-col gap-2">
+              <label className="font-medium">Cuotas</label>
+              <InputNumber
+                value={installments}
+                onValueChange={(e) => {
+                  setInstallments(e.value);
+                  setInstallmentsRemaining(e.value);
+                }}
+                min={1}
+                className="w-full"
+              />
+              {errors.installments && <Message severity="error" text={errors.installments} />}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="font-medium">Interés (%)</label>
+              <InputNumber value={interest} onValueChange={(e) => setInterest(e.value)} min={0} mode="decimal" className="w-full" />
+              {errors.interest && <Message severity="error" text={errors.interest} />}
+            </div>
+          </>
+        )}
       </div>
 
       <Button
