@@ -192,7 +192,15 @@ export const MonthlyReports = () => {
 
       <Card className="shadow-lg">
         <h3 className="text-xl font-semibold mb-4">Detalles de transacciones</h3>
-        <DataTable value={transactions} paginator rows={5} sortField="date" sortOrder={-1} className="p-datatable-sm">
+        <DataTable
+          value={transactions}
+          paginator
+          rows={5}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          sortField="date"
+          sortOrder={-1}
+          className="p-datatable-sm"
+        >
           <Column field="date" header="Fecha" body={(rowData) => format(new Date(rowData.date), "dd/MM/yyyy")} sortable />
           <Column
             field="type"

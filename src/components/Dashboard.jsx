@@ -53,6 +53,10 @@ export const Dashboard = () => {
           id: doc.id,
           ...doc.data(),
         }));
+
+        // Ordenar por fecha descendente
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
+
         setTransactions(data);
       });
 

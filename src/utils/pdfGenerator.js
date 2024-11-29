@@ -21,12 +21,11 @@ const monthMap = {
 
 // Función para generar el nombre del archivo
 const generatePDFFileName = (selectedMonth, userId) => {
-  const date = new Date(selectedMonth);
-  const month = monthMap[date.getMonth()]; // Obtener el mes abreviado
-  const year = date.getFullYear();
+  const [year, month] = selectedMonth.split("-"); // Separar año y mes del formato "YYYY-MM"
+  const monthAbbreviation = monthMap[parseInt(month, 10) - 1]; // Convertir mes a índice y obtener la abreviatura
   const timestamp = new Date().getTime(); // Identificador único basado en tiempo
 
-  return `PAGATODO-${month}-${year}-${userId}-${timestamp}.pdf`;
+  return `PAGATODO-${monthAbbreviation}-${year}-${userId}-${timestamp}.pdf`;
 };
 
 export const generatePDF = (data, selectedMonth, userId) => {
