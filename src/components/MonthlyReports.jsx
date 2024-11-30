@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { EditTransactionForm } from "./EditTransactionForm";
 import { useTransactions } from "../context/TransactionsProvider";
 import { generatePDF } from "../utils/pdfGenerator";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 export const MonthlyReports = () => {
   const {
@@ -26,6 +27,8 @@ export const MonthlyReports = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
   const toast = useRef(null);
+  const [confirmDialogVisible, setConfirmDialogVisible] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
 
   useEffect(() => {
     if (selectedMonth) {
@@ -44,9 +47,16 @@ export const MonthlyReports = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
+  const confirmDelete = (transaction) => {
+    setTransactionToDelete(transaction);
+    setConfirmDialogVisible(true);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!transactionToDelete) return;
+
     try {
-      await deleteTransaction(id);
+      await deleteTransaction(transactionToDelete.id);
       toast.current.show({
         severity: "success",
         summary: "Éxito",
@@ -61,6 +71,9 @@ export const MonthlyReports = () => {
         detail: "No se pudo eliminar la transacción.",
         life: 3000,
       });
+    } finally {
+      setTransactionToDelete(null);
+      setConfirmDialogVisible(false);
     }
   };
 
@@ -230,7 +243,7 @@ export const MonthlyReports = () => {
                   label="Borrar"
                   icon="pi pi-trash"
                   className="p-button-rounded p-button-text p-button-sm"
-                  onClick={() => handleDelete(rowData.id)}
+                  onClick={() => confirmDelete(rowData)}
                   disabled={!isCurrentMonth(selectedMonth)}
                 />
               </div>
@@ -251,6 +264,12 @@ export const MonthlyReports = () => {
       >
         {transactionToEdit && <EditTransactionForm transaction={transactionToEdit} onClose={handleModalClose} />}
       </Dialog>
+      <ConfirmDialog
+        visible={confirmDialogVisible}
+        onHide={() => setConfirmDialogVisible(false)}
+        onConfirm={handleDeleteConfirmed}
+        message={`¿Estás seguro de que deseas eliminar la transacción "${transactionToDelete?.description}"?`}
+      />
     </div>
   );
 };

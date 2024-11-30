@@ -15,6 +15,7 @@ import { getAuth } from "firebase/auth";
 import { categories } from "../utils/categories";
 import { EditTransactionForm } from "./EditTransactionForm";
 import { format } from "date-fns";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 export const Dashboard = () => {
   const [transactions, setTransactions] = useState([]);
@@ -26,6 +27,8 @@ export const Dashboard = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [first, setFirst] = useState(0);
   const [rows, setRows] = useState(10); // Máximo de 10 entradas por página para mobile
+  const [confirmDialogVisible, setConfirmDialogVisible] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
 
   const toast = useRef(null);
 
@@ -115,9 +118,16 @@ export const Dashboard = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
+  const confirmDelete = (transaction) => {
+    setTransactionToDelete(transaction);
+    setConfirmDialogVisible(true);
+  };
+
+  const handleDelete = async () => {
+    if (!transactionToDelete) return;
+
     try {
-      const transactionDocRef = doc(db, "transactions", id);
+      const transactionDocRef = doc(db, "transactions", transactionToDelete.id);
       await deleteDoc(transactionDocRef);
       toast.current.show({
         severity: "success",
@@ -125,6 +135,7 @@ export const Dashboard = () => {
         detail: "Transacción eliminada correctamente",
         life: 3000,
       });
+      setTransactionToDelete(null);
     } catch (error) {
       console.error("Error eliminando transacción:", error);
       toast.current.show({
@@ -133,6 +144,8 @@ export const Dashboard = () => {
         detail: "Hubo un problema al eliminar la transacción",
         life: 3000,
       });
+    } finally {
+      setConfirmDialogVisible(false);
     }
   };
 
@@ -170,7 +183,7 @@ export const Dashboard = () => {
                 label="Eliminar"
                 icon="pi pi-trash"
                 className="p-button-rounded p-button-text p-button-sm"
-                onClick={() => handleDelete(transaction.id)}
+                onClick={() => confirmDelete(transaction)}
               />
             </div>
           </div>
@@ -217,7 +230,7 @@ export const Dashboard = () => {
               label=""
               icon="pi pi-trash"
               className="p-button-rounded p-button-text p-button-sm"
-              onClick={() => handleDelete(rowData.id)}
+              onClick={() => confirmDelete(rowData)}
             />
           </div>
         )}
@@ -291,6 +304,12 @@ export const Dashboard = () => {
       >
         {transactionToEdit && <EditTransactionForm transaction={transactionToEdit} onClose={() => setIsModalOpen(false)} />}
       </Dialog>
+      <ConfirmDialog
+        visible={confirmDialogVisible}
+        onHide={() => setConfirmDialogVisible(false)}
+        onConfirm={handleDelete}
+        message={`¿Estás seguro de que deseas eliminar la transacción "${transactionToDelete?.description}"?`}
+      />
     </div>
   );
 };
