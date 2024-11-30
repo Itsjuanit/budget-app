@@ -33,6 +33,12 @@ export const MonthlyReports = () => {
     }
   }, [selectedMonth, loadTransactionsForMonth]);
 
+  const isCurrentMonth = (monthYear) => {
+    const currentDate = new Date();
+    const [year, month] = monthYear.split("-").map(Number);
+    return currentDate.getFullYear() === year && currentDate.getMonth() + 1 === month;
+  };
+
   const handleEdit = (transaction) => {
     setTransactionToEdit(transaction);
     setIsModalOpen(true);
@@ -162,38 +168,6 @@ export const MonthlyReports = () => {
 
       <Button label="Descargar Reporte PDF" icon="pi pi-file-pdf" className="p-button-danger mb-4" onClick={handleDownloadPDF} />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card className="shadow-lg">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-600">Ingresos Totales</h3>
-            <p className="text-2xl font-bold text-green-600">
-              {formatCurrency(transactions.reduce((acc, t) => (t.type === "income" ? acc + t.amount : acc), 0))}
-            </p>
-          </div>
-        </Card>
-
-        <Card className="shadow-lg">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-600">Gastos Totales</h3>
-            <p className="text-2xl font-bold text-red-600">
-              {formatCurrency(transactions.reduce((acc, t) => (t.type === "expense" ? acc + t.amount : acc), 0))}
-            </p>
-          </div>
-        </Card>
-
-        <Card className="shadow-lg">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-600">Ahorros Netos</h3>
-            <p className="text-2xl font-bold text-blue-600">
-              {formatCurrency(
-                transactions.reduce((acc, t) => (t.type === "income" ? acc + t.amount : acc), 0) -
-                  transactions.reduce((acc, t) => (t.type === "expense" ? acc + t.amount : acc), 0)
-              )}
-            </p>
-          </div>
-        </Card>
-      </div>
-
       <Card className="shadow-lg">
         <h3 className="text-xl font-semibold mb-4">Detalles de transacciones</h3>
         <DataTable
@@ -219,15 +193,6 @@ export const MonthlyReports = () => {
           <Column field="category" header="Categoría" sortable />
           <Column field="description" header="Descripción" sortable />
           <Column field="amount" header="Monto" body={(rowData) => formatCurrency(rowData.amount)} sortable />
-          {transactions.some((t) => t.category === "tarjeta-credito") && (
-            <Column
-              field="installmentsRemaining"
-              header="Cuotas Restantes"
-              body={(rowData) =>
-                rowData.category === "tarjeta-credito" ? `${rowData.installmentsRemaining} / ${rowData.installments}` : "-"
-              }
-            />
-          )}
           <Column
             body={(rowData) => (
               <div className="flex gap-2">
@@ -236,12 +201,14 @@ export const MonthlyReports = () => {
                   icon="pi pi-pencil"
                   className="p-button-rounded p-button-text p-button-sm"
                   onClick={() => handleEdit(rowData)}
+                  disabled={!isCurrentMonth(selectedMonth)}
                 />
                 <Button
                   label="Borrar"
                   icon="pi pi-trash"
                   className="p-button-rounded p-button-text p-button-sm"
                   onClick={() => handleDelete(rowData.id)}
+                  disabled={!isCurrentMonth(selectedMonth)}
                 />
               </div>
             )}
