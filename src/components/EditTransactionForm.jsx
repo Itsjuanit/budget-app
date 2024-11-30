@@ -22,7 +22,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
   const [errors, setErrors] = useState({});
   const toast = useRef(null);
 
-  const isCurrentMonth = (selectedDate) => {
+  const isSameMonthAndYear = (selectedDate) => {
     const currentDate = new Date();
     return selectedDate.getFullYear() === currentDate.getFullYear() && selectedDate.getMonth() === currentDate.getMonth();
   };
@@ -33,7 +33,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
-    if (!isCurrentMonth(date)) newErrors.date = "Solo puedes editar transacciones del mes actual.";
+    if (!isSameMonthAndYear(date)) newErrors.date = "Solo puedes editar transacciones del mes y año actual.";
     if (category === "tarjeta-credito" && installments < 0) newErrors.installments = "Las cuotas no pueden ser negativas.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
