@@ -8,6 +8,7 @@ export const categories = {
   ]),
   expense: assignColorsToCategories([
     { label: "Actividad física", value: "actividad-fisica" },
+    { label: "Ahorros", value: "ahorros" },
     { label: "Alquiler", value: "alquiler" },
     { label: "Celulares", value: "celulares" },
     { label: "Círculo", value: "circulo" },
