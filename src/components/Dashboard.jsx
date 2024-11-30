@@ -257,7 +257,11 @@ export const Dashboard = () => {
             <div>
               <h3 className="text-lg font-semibold text-gray-600">Porcentaje de ahorro</h3>
               <p className="text-2xl font-bold text-gray-800">
-                {monthlyExpenses > 0 ? `${Math.round((monthlySavings / monthlyExpenses) * 100)}%` : "0%"}
+                {monthlyExpenses > 0 && transactions.some((t) => t.type === "income")
+                  ? `${Math.round(
+                      (1 - monthlyExpenses / transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0)) * 100
+                    )}%`
+                  : "0%"}
               </p>
             </div>
           </div>

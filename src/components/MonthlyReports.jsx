@@ -109,10 +109,6 @@ export const MonthlyReports = () => {
       savings:
         sanitizedTransactions.reduce((acc, t) => (t.type === "income" ? acc + t.amount : acc), 0) -
         sanitizedTransactions.reduce((acc, t) => (t.type === "expense" ? acc + t.amount : acc), 0),
-      remainingInstallments: sanitizedTransactions.reduce(
-        (acc, t) => acc + (t.category === "tarjeta-credito" ? (t.installmentsRemaining * t.amount) / t.installments : 0),
-        0
-      ),
     };
 
     try {
@@ -150,6 +146,10 @@ export const MonthlyReports = () => {
     })
     .filter(Boolean);
 
+  const totalIncome = transactions.reduce((acc, t) => (t.type === "income" ? acc + t.amount : acc), 0);
+  const totalExpenses = transactions.reduce((acc, t) => (t.type === "expense" ? acc + t.amount : acc), 0);
+  const percentageSpent = totalIncome > 0 ? ((totalExpenses / totalIncome) * 100).toFixed(2) : 0;
+
   return (
     <div className="p-6">
       <Toast ref={toast} />
@@ -167,6 +167,29 @@ export const MonthlyReports = () => {
       </div>
 
       <Button label="Descargar Reporte PDF" icon="pi pi-file-pdf" className="p-button-danger mb-4" onClick={handleDownloadPDF} />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Card className="shadow-lg">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-600">Total Ingresado</h3>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalIncome)}</p>
+          </div>
+        </Card>
+
+        <Card className="shadow-lg">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-600">Total Gastado</h3>
+            <p className="text-2xl font-bold text-red-600">{formatCurrency(totalExpenses)}</p>
+          </div>
+        </Card>
+
+        <Card className="shadow-lg">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-600">% Gastado</h3>
+            <p className="text-2xl font-bold text-blue-600">{`${percentageSpent}%`}</p>
+          </div>
+        </Card>
+      </div>
 
       <Card className="shadow-lg">
         <h3 className="text-xl font-semibold mb-4">Detalles de transacciones</h3>
