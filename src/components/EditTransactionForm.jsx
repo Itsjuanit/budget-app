@@ -17,8 +17,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
   const [category, setCategory] = useState(transaction?.category || "");
   const [description, setDescription] = useState(transaction?.description || "");
   const [date, setDate] = useState(transaction ? new Date(transaction.date) : new Date());
-  const [installments, setInstallments] = useState(transaction?.installments || 1);
-  const [interest, setInterest] = useState(transaction?.interest || 0);
+  const [installments, setInstallments] = useState(transaction?.installments || 0);
   const [installmentsRemaining, setInstallmentsRemaining] = useState(transaction?.installmentsRemaining || installments);
   const [errors, setErrors] = useState({});
   const toast = useRef(null);
@@ -35,10 +34,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
     if (!isCurrentMonth(date)) newErrors.date = "Solo puedes editar transacciones del mes actual.";
-    if (category === "tarjeta-credito") {
-      if (!installments || installments < 1) newErrors.installments = "El número de cuotas debe ser mayor a 0.";
-      if (interest < 0) newErrors.interest = "El interés no puede ser negativo.";
-    }
+    if (category === "tarjeta-credito" && installments < 0) newErrors.installments = "Las cuotas no pueden ser negativas.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -57,7 +53,6 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
       date: date.toISOString(),
       ...(category === "tarjeta-credito" && {
         installments,
-        interest,
         installmentsRemaining,
       }),
     };
@@ -149,27 +144,19 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
         </div>
 
         {category === "tarjeta-credito" && (
-          <>
-            <div className="flex flex-col gap-2">
-              <label className="font-medium">Cuotas</label>
-              <InputNumber
-                value={installments}
-                onValueChange={(e) => {
-                  setInstallments(e.value);
-                  setInstallmentsRemaining(e.value);
-                }}
-                min={1}
-                className="w-full"
-              />
-              {errors.installments && <Message severity="error" text={errors.installments} />}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="font-medium">Interés (%)</label>
-              <InputNumber value={interest} onValueChange={(e) => setInterest(e.value)} min={0} mode="decimal" className="w-full" />
-              {errors.interest && <Message severity="error" text={errors.interest} />}
-            </div>
-          </>
+          <div className="flex flex-col gap-2">
+            <label className="font-medium">Cuotas</label>
+            <InputNumber
+              value={installments}
+              onValueChange={(e) => {
+                setInstallments(e.value);
+                setInstallmentsRemaining(e.value);
+              }}
+              min={0}
+              className="w-full"
+            />
+            {errors.installments && <Message severity="error" text={errors.installments} />}
+          </div>
         )}
       </div>
 

@@ -17,8 +17,7 @@ export const TransactionForm = () => {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
-  const [installments, setInstallments] = useState(1); // Cuotas
-  const [interest, setInterest] = useState(0); // Interés
+  const [installments, setInstallments] = useState(0); // Cuotas
   const [errors, setErrors] = useState({});
   const toast = useRef(null);
 
@@ -34,7 +33,7 @@ export const TransactionForm = () => {
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
     if (!isCurrentMonth(date)) newErrors.date = "Solo puedes registrar transacciones en el mes actual.";
-    if (category === "tarjeta-credito" && installments < 1) newErrors.installments = "Las cuotas deben ser al menos 1.";
+    if (category === "tarjeta-credito" && installments < 0) newErrors.installments = "Las cuotas no pueden ser negativas.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -67,7 +66,6 @@ export const TransactionForm = () => {
       date: date.toISOString(),
       monthYear,
       installments: category === "tarjeta-credito" ? installments : 0,
-      interest: category === "tarjeta-credito" ? interest : 0,
       installmentsRemaining: category === "tarjeta-credito" ? installments : 0,
     };
 
@@ -78,8 +76,7 @@ export const TransactionForm = () => {
       setCategory("");
       setDescription("");
       setDate(new Date());
-      setInstallments(1);
-      setInterest(0);
+      setInstallments(0);
       setErrors({});
       toast.current.show({
         severity: "success",
@@ -151,25 +148,11 @@ export const TransactionForm = () => {
         </div>
 
         {category === "tarjeta-credito" && (
-          <>
-            <div className="flex flex-col gap-2">
-              <label className="font-medium">Cuotas</label>
-              <InputNumber value={installments} onValueChange={(e) => setInstallments(e.value)} min={1} className="w-full" />
-              {errors.installments && <Message severity="error" text={errors.installments} />}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="font-medium">Interés (%)</label>
-              <InputNumber
-                value={interest}
-                onValueChange={(e) => setInterest(e.value)}
-                min={0}
-                mode="decimal"
-                suffix="%"
-                className="w-full"
-              />
-            </div>
-          </>
+          <div className="flex flex-col gap-2">
+            <label className="font-medium">Cuotas</label>
+            <InputNumber value={installments} onValueChange={(e) => setInstallments(e.value)} min={0} className="w-full" />
+            {errors.installments && <Message severity="error" text={errors.installments} />}
+          </div>
         )}
 
         <div className="flex flex-col gap-2 md:col-span-2">

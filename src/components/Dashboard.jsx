@@ -203,13 +203,18 @@ export const Dashboard = () => {
         body={(rowData) => (
           <div className="flex gap-2">
             <Button
-              label="Editar"
+              placeholder="Top"
+              tooltip="Editar"
+              label=""
               icon="pi pi-pencil"
               className="p-button-rounded p-button-text p-button-sm"
               onClick={() => handleEdit(rowData)}
             />
+
             <Button
-              label="Eliminar"
+              placeholder="Top"
+              tooltip="Eliminar"
+              label=""
               icon="pi pi-trash"
               className="p-button-rounded p-button-text p-button-sm"
               onClick={() => handleDelete(rowData.id)}
