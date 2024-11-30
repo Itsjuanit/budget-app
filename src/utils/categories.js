@@ -31,6 +31,7 @@ export const categories = {
     { label: "Spotify", value: "spotify" },
     { label: "Supermercado", value: "supermercado" },
     { label: "Tarjeta de crédito", value: "tarjeta-credito" },
+    { label: "Transferencias", value: "transferencias" },
     { label: "Transporte", value: "transporte" },
     { label: "YouTube Premium", value: "youtube-premium" },
   ]),
