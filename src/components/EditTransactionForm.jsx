@@ -23,12 +23,18 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
   const [errors, setErrors] = useState({});
   const toast = useRef(null);
 
+  const isCurrentMonth = (selectedDate) => {
+    const currentDate = new Date();
+    return selectedDate.getFullYear() === currentDate.getFullYear() && selectedDate.getMonth() === currentDate.getMonth();
+  };
+
   const validateFields = () => {
     const newErrors = {};
     if (!amount) newErrors.amount = "El monto es obligatorio.";
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
+    if (!isCurrentMonth(date)) newErrors.date = "Solo puedes editar transacciones del mes actual.";
     if (category === "tarjeta-credito") {
       if (!installments || installments < 1) newErrors.installments = "El número de cuotas debe ser mayor a 0.";
       if (interest < 0) newErrors.interest = "El interés no puede ser negativo.";

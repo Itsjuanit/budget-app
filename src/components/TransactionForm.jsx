@@ -5,7 +5,7 @@ import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { Message } from "primereact/message";
-import { Toast } from "primereact/toast"; // Importa Toast
+import { Toast } from "primereact/toast";
 import { db } from "@/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -22,12 +22,18 @@ export const TransactionForm = () => {
   const [errors, setErrors] = useState({});
   const toast = useRef(null);
 
+  const isCurrentMonth = (selectedDate) => {
+    const currentDate = new Date();
+    return selectedDate.getFullYear() === currentDate.getFullYear() && selectedDate.getMonth() === currentDate.getMonth();
+  };
+
   const validateFields = () => {
     const newErrors = {};
     if (!amount) newErrors.amount = "El monto es obligatorio.";
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
+    if (!isCurrentMonth(date)) newErrors.date = "Solo puedes registrar transacciones en el mes actual.";
     if (category === "tarjeta-credito" && installments < 1) newErrors.installments = "Las cuotas deben ser al menos 1.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
