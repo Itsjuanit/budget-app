@@ -1,11 +1,9 @@
-import React, { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { Password } from "primereact/password";
-import { Card } from "primereact/card";
 import { Toast } from "primereact/toast";
-import { Divider } from "primereact/divider";
 import { getAuth, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 export const Signup = () => {
@@ -72,32 +70,59 @@ export const Signup = () => {
   };
 
   return (
-    <div className="flex justify-content-center">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-color to-accent-color p-4">
       <Toast ref={toast} />
-      <Card title="Crear Cuenta" style={{ width: "25rem" }}>
-        <form onSubmit={handleSubmit} className="p-fluid">
-          <div className="field">
-            <span className="p-float-label p-input-icon-right">
-              <InputText id="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <label htmlFor="email">Correo Electrónico</label>
-            </span>
-          </div>
-          <div className="field mt-4">
-            <span className="p-float-label">
-              <Password id="password" value={password} onChange={(e) => setPassword(e.target.value)} toggleMask />
-              <label htmlFor="password">Contraseña</label>
-            </span>
-          </div>
-          <Button type="submit" label="Crear Cuenta" className="mt-4" />
-        </form>
-        <Divider align="center">
-          <span className="p-tag">O</span>
-        </Divider>
 
-        <div className="field mt-4">
-          <Button label="Registrarse con Google" icon="pi pi-google" className="p-button-secondary mt-4" onClick={handleGoogleSignup} />
+      <div className="w-full max-w-md">
+        <div className="card shadow-hover">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-gradient mb-2">PresupuestoApp</h1>
+            <p className="text-text-color-secondary">Crea tu cuenta y comienza a controlar tus finanzas</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-text-color mb-1">
+                Correo Electrónico
+              </label>
+              <InputText id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full" />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-text-color mb-1">
+                Contraseña
+              </label>
+              <Password id="password" value={password} onChange={(e) => setPassword(e.target.value)} toggleMask className="w-full" />
+            </div>
+
+            <Button type="submit" label="Crear Cuenta" className="w-full p-button-primary" />
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-text-color-secondary">O</span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              label="Registrarse con Google"
+              icon="pi pi-google"
+              className="w-full p-button-secondary"
+              onClick={handleGoogleSignup}
+            />
+          </form>
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-text-color-secondary">¿Ya tienes una cuenta? </span>
+            <Link to="/login" className="text-primary-color hover:text-accent-color font-medium">
+              Inicia sesión aquí
+            </Link>
+          </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

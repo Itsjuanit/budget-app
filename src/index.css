@@ -7,20 +7,64 @@
 @tailwind utilities;
 
 :root {
-  --primary-color: #2563eb;
-  --secondary-color: #3b82f6;
+  --primary-color: #667eea;
+  --secondary-color: #764ba2;
+  --background-color: #f8fafc;
+  --text-color: #1a1a1a;
+  --text-color-secondary: #666666;
+  --accent-color: #6366f1;
+  --card-bg-color: #f1f5f9; /* Color de fondo para las cajas */
 }
 
 body {
   margin: 0;
-  background-color: #f8fafc;
+  background-color: var(--background-color);
   font-family: "Roboto", sans-serif;
+  color: var(--text-color);
 }
 
+/* Caja con mayor contraste y fondo modificado */
 .card {
-  background: white;
+  background: var(--card-bg-color);
   padding: 2rem;
   border-radius: 10px;
   margin-bottom: 1rem;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.2);
+  border: 1px solid #e5e7eb;
+}
+
+/* Estilos adicionales para PrimeReact */
+.p-button {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  border: none;
+}
+
+.p-button:hover {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 70%);
+}
+
+.p-inputtext:focus,
+.p-password input:focus {
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1) !important;
+}
+
+.p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box.p-focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box.p-highlight {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+/* Estilos para enlaces */
+a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--secondary-color);
 }
