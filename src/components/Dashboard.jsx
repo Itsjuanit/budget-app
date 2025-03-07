@@ -284,7 +284,7 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="shadow-lg">
           <h3 className="text-xl font-semibold mb-4">Gastos por categoría</h3>
-          <Chart type="pie" data={chartData} options={chartOptions} style={{ height: "300px" }} />
+          <Chart type="pie" data={chartData} options={chartOptions} className="w-full md:w-30rem" />
         </Card>
         <Card className="shadow-lg">
           <h3 className="text-xl font-semibold mb-4">Transacciones recientes</h3>

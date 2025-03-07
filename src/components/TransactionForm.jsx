@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
@@ -6,10 +6,11 @@ import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { Message } from "primereact/message";
 import { Toast } from "primereact/toast";
+import { Dialog } from "primereact/dialog";
 import { db } from "@/firebaseConfig";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { categories } from "../utils/categories";
+import { categories as defaultCategories } from "../utils/categories";
 
 export const TransactionForm = () => {
   const [type, setType] = useState("expense");
@@ -17,9 +18,43 @@ export const TransactionForm = () => {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
-  const [installments, setInstallments] = useState(0); // Cuotas
+  const [installments, setInstallments] = useState(0);
   const [errors, setErrors] = useState({});
+  const [customCategories, setCustomCategories] = useState({ income: [], expense: [] });
+  const [showNewCatDialog, setShowNewCatDialog] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
   const toast = useRef(null);
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  // Cargar las categorías personalizadas del usuario (cada categoría se asigna al userId)
+  useEffect(() => {
+    const fetchCustomCategories = async () => {
+      if (!user) return;
+      try {
+        const q = query(collection(db, "customCategories"), where("userId", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+        const income = [];
+        const expense = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.type === "income") income.push({ label: data.label, value: data.value });
+          else if (data.type === "expense") expense.push({ label: data.label, value: data.value });
+        });
+        setCustomCategories({ income, expense });
+      } catch (error) {
+        console.error("Error cargando categorías personalizadas:", error);
+      }
+    };
+
+    fetchCustomCategories();
+  }, [user]);
+
+  // Fusionar categorías predefinidas con las personalizadas del usuario
+  const mergedCategories = {
+    income: [...defaultCategories.income, ...customCategories.income],
+    expense: [...defaultCategories.expense, ...customCategories.expense],
+  };
 
   const isSameMonthAndYear = (selectedDate) => {
     const currentDate = new Date();
@@ -41,9 +76,6 @@ export const TransactionForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateFields()) return;
-
-    const auth = getAuth();
-    const user = auth.currentUser;
 
     if (!user) {
       toast.current.show({
@@ -95,79 +127,152 @@ export const TransactionForm = () => {
     }
   };
 
+  // Función para guardar una nueva categoría personalizada, asignada al usuario
+  const handleSaveNewCategory = async () => {
+    if (!newCatName.trim()) return;
+
+    try {
+      const newCategory = {
+        userId: user.uid,
+        type,
+        label: newCatName,
+        value: newCatName.toLowerCase().replace(/\s+/g, "-"),
+      };
+
+      await addDoc(collection(db, "customCategories"), newCategory);
+      setCustomCategories((prev) => ({
+        ...prev,
+        [type]: [...prev[type], { label: newCategory.label, value: newCategory.value }],
+      }));
+      setCategory(newCategory.value);
+      setNewCatName("");
+      setShowNewCatDialog(false);
+      toast.current.show({
+        severity: "success",
+        summary: "Categoría creada",
+        detail: "La nueva categoría ha sido agregada.",
+        life: 3000,
+      });
+    } catch (error) {
+      console.error("Error creando categoría:", error);
+      toast.current.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudo crear la categoría.",
+        life: 3000,
+      });
+    }
+  };
+
+  // Opciones para el Dropdown (sólo las categorías existentes)
+  const categoryOptions = mergedCategories[type]?.map((c) => ({ label: c.label, value: c.value }));
+
+  const secondaryButtonStyles = {
+    background: "#fff",
+    color: "#4a5568",
+    border: "1px solid #cbd5e0",
+    padding: "1rem",
+    width: "40%",
+    fontWeight: 600,
+    transition: "transform 0.2s, box-shadow 0.2s",
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
-      <Toast ref={toast} />
+    <>
+      <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
+        <Toast ref={toast} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2">
-          <label className="font-medium">Tipo</label>
-          <Dropdown
-            value={type}
-            options={[
-              { label: "Ingreso", value: "income" },
-              { label: "Gasto", value: "expense" },
-            ]}
-            onChange={(e) => {
-              setType(e.value);
-              setCategory("");
-            }}
-            className="w-full"
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="font-medium">Monto</label>
-          <InputNumber
-            value={amount}
-            onValueChange={(e) => setAmount(e.value)}
-            mode="currency"
-            currency="ARS"
-            locale="es-AR"
-            className="w-full"
-          />
-          {errors.amount && <Message severity="error" text={errors.amount} />}
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="font-medium">Categoría</label>
-          <Dropdown
-            value={category}
-            options={categories[type]?.map((c) => ({ label: c.label, value: c.value }))}
-            onChange={(e) => setCategory(e.value)}
-            className="w-full"
-            placeholder="Selecciona una categoría"
-          />
-          {errors.category && <Message severity="error" text={errors.category} />}
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="font-medium">Fecha</label>
-          <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" dateFormat="dd/mm/yy" locale="es" />
-          {errors.date && <Message severity="error" text={errors.date} />}
-        </div>
-
-        {category === "tarjeta-credito" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
-            <label className="font-medium">Cuotas</label>
-            <InputNumber value={installments} onValueChange={(e) => setInstallments(e.value)} min={0} className="w-full" />
-            {errors.installments && <Message severity="error" text={errors.installments} />}
+            <label className="font-medium">Tipo</label>
+            <Dropdown
+              value={type}
+              options={[
+                { label: "Ingreso", value: "income" },
+                { label: "Gasto", value: "expense" },
+              ]}
+              onChange={(e) => {
+                setType(e.value);
+                setCategory("");
+              }}
+              className="w-full"
+            />
           </div>
-        )}
 
-        <div className="flex flex-col gap-2 md:col-span-2">
-          <label className="font-medium">Descripción</label>
-          <InputText
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full"
-            placeholder="Ingrese una descripción"
-          />
-          {errors.description && <Message severity="error" text={errors.description} />}
+          <div className="flex flex-col gap-2">
+            <label className="font-medium">Monto</label>
+            <InputNumber
+              value={amount}
+              onValueChange={(e) => setAmount(e.value)}
+              mode="currency"
+              currency="ARS"
+              locale="es-AR"
+              className="w-full"
+            />
+            {errors.amount && <Message severity="error" text={errors.amount} />}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="font-medium">Categoría</label>
+            <Dropdown
+              value={category}
+              options={categoryOptions}
+              onChange={(e) => setCategory(e.value)}
+              className="w-full"
+              placeholder="Selecciona una categoría"
+            />
+            {errors.category && <Message severity="error" text={errors.category} />}
+            <div className="mt-2">
+              <Button
+                label="Crear nueva categoría"
+                className="p-button-text p-button-sm"
+                onClick={() => setShowNewCatDialog(true)}
+                style={secondaryButtonStyles}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="font-medium">Fecha</label>
+            <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" dateFormat="dd/mm/yy" locale="es" />
+            {errors.date && <Message severity="error" text={errors.date} />}
+          </div>
+
+          {category === "tarjeta-credito" && (
+            <div className="flex flex-col gap-2">
+              <label className="font-medium">Cuotas</label>
+              <InputNumber value={installments} onValueChange={(e) => setInstallments(e.value)} min={0} className="w-full" />
+              {errors.installments && <Message severity="error" text={errors.installments} />}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2 md:col-span-2">
+            <label className="font-medium">Descripción</label>
+            <InputText
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full"
+              placeholder="Ingrese una descripción"
+            />
+            {errors.description && <Message severity="error" text={errors.description} />}
+          </div>
         </div>
-      </div>
 
-      <Button type="submit" label="Agregar" className="mt-4 w-full" />
-    </form>
+        <Button type="submit" label="Agregar" className="mt-4 w-full" />
+      </form>
+
+      {/* Diálogo responsive para crear una nueva categoría */}
+      <Dialog
+        header="Crear nueva categoría"
+        visible={showNewCatDialog}
+        onHide={() => setShowNewCatDialog(false)}
+        style={{ width: "90vw", maxWidth: "400px" }}
+      >
+        <div className="flex flex-col gap-4">
+          <InputText value={newCatName} onChange={(e) => setNewCatName(e.target.value)} placeholder="Nombre de la categoría" />
+          <Button label="Guardar categoría" onClick={handleSaveNewCategory} />
+        </div>
+      </Dialog>
+    </>
   );
 };

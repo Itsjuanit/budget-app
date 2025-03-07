@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
@@ -7,7 +7,10 @@ import { Button } from "primereact/button";
 import { Message } from "primereact/message";
 import { Toast } from "primereact/toast";
 import { useTransactions } from "../context/TransactionsProvider";
-import { categories } from "../utils/categories";
+import { categories as defaultCategories } from "../utils/categories";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/firebaseConfig";
+import { getAuth } from "firebase/auth";
 
 export const EditTransactionForm = ({ transaction, onClose }) => {
   const { updateTransaction } = useTransactions();
@@ -21,6 +24,40 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
   const [installmentsRemaining, setInstallmentsRemaining] = useState(transaction?.installmentsRemaining || installments);
   const [errors, setErrors] = useState({});
   const toast = useRef(null);
+
+  // Estado para las categorías personalizadas del usuario
+  const [customCategories, setCustomCategories] = useState({ income: [], expense: [] });
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  // Cargar las categorías personalizadas del usuario
+  useEffect(() => {
+    const fetchCustomCategories = async () => {
+      if (!user) return;
+      try {
+        const q = query(collection(db, "customCategories"), where("userId", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+        const income = [];
+        const expense = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.type === "income") income.push({ label: data.label, value: data.value });
+          else if (data.type === "expense") expense.push({ label: data.label, value: data.value });
+        });
+        setCustomCategories({ income, expense });
+      } catch (error) {
+        console.error("Error cargando categorías personalizadas:", error);
+      }
+    };
+
+    fetchCustomCategories();
+  }, [user]);
+
+  // Fusionar las categorías predefinidas con las personalizadas
+  const mergedCategories = {
+    income: [...defaultCategories.income, ...customCategories.income],
+    expense: [...defaultCategories.expense, ...customCategories.expense],
+  };
 
   const isSameMonthAndYear = (selectedDate) => {
     const currentDate = new Date();
@@ -41,7 +78,6 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!validateFields()) return;
 
     const updatedTransaction = {
@@ -66,11 +102,9 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
         detail: "Transacción actualizada correctamente.",
         life: 3000,
       });
-
       onClose();
     } catch (error) {
       console.error("Error actualizando la transacción:", error);
-
       toast.current.show({
         severity: "error",
         summary: "Error",
@@ -118,7 +152,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
           <label className="font-medium">Categoría</label>
           <Dropdown
             value={category}
-            options={categories[type]?.map((c) => ({ label: c.label, value: c.value }))}
+            options={mergedCategories[type]?.map((c) => ({ label: c.label, value: c.value }))}
             onChange={(e) => setCategory(e.value)}
             className="w-full"
             placeholder="Selecciona una categoría"
