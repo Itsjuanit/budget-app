@@ -169,11 +169,11 @@ export const TransactionForm = () => {
 
   const secondaryButtonStyles = {
     background: "#fff",
-    color: "#4a5568",
+    color: "#6b6e72",
     border: "1px solid #cbd5e0",
     padding: "1rem",
     width: "40%",
-    fontWeight: 600,
+    fontWeight: 100,
     transition: "transform 0.2s, box-shadow 0.2s",
   };
 

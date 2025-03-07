@@ -12,8 +12,18 @@ export const ConfirmDialog = ({ visible, onHide, onConfirm, message }) => {
       breakpoints={{ "960px": "75vw", "640px": "90vw" }}
       footer={
         <div className="flex justify-end gap-2">
-          <Button label="No" icon="pi pi-times" className="p-button-text" onClick={onHide} />
-          <Button label="Sí" icon="pi pi-check" className="p-button-danger" onClick={onConfirm} />
+          <Button
+            label="No"
+            icon="pi pi-times"
+            className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
+            onClick={onHide}
+          />
+          <Button
+            label="Sí"
+            icon="pi pi-check"
+            className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
+            onClick={onConfirm}
+          />
         </div>
       }
     >
