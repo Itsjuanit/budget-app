@@ -176,13 +176,13 @@ export const Dashboard = () => {
               <Button
                 label="Editar"
                 icon="pi pi-pencil"
-                className="p-button-rounded p-button-text p-button-sm"
+                className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
                 onClick={() => handleEdit(transaction)}
               />
               <Button
                 label="Eliminar"
                 icon="pi pi-trash"
-                className="p-button-rounded p-button-text p-button-sm"
+                className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
                 onClick={() => confirmDelete(transaction)}
               />
             </div>
@@ -220,7 +220,7 @@ export const Dashboard = () => {
               tooltip="Editar"
               label=""
               icon="pi pi-pencil"
-              className="p-button-rounded p-button-text p-button-sm"
+              className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
               onClick={() => handleEdit(rowData)}
             />
 
@@ -229,7 +229,7 @@ export const Dashboard = () => {
               tooltip="Eliminar"
               label=""
               icon="pi pi-trash"
-              className="p-button-rounded p-button-text p-button-sm"
+              className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
               onClick={() => confirmDelete(rowData)}
             />
           </div>

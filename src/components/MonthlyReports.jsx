@@ -235,14 +235,14 @@ export const MonthlyReports = () => {
                 <Button
                   label="Editar"
                   icon="pi pi-pencil"
-                  className="p-button-rounded p-button-text p-button-sm"
+                  className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
                   onClick={() => handleEdit(rowData)}
                   disabled={!isCurrentMonth(selectedMonth)}
                 />
                 <Button
-                  label="Borrar"
+                  label="Eliminar"
                   icon="pi pi-trash"
-                  className="p-button-rounded p-button-text p-button-sm"
+                  className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
                   onClick={() => confirmDelete(rowData)}
                   disabled={!isCurrentMonth(selectedMonth)}
                 />
