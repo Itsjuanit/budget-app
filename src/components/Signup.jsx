@@ -76,33 +76,17 @@ export const Signup = () => {
       <div className="w-full max-w-md">
         <div className="card shadow-hover">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gradient mb-2">PresupuestoApp</h1>
-            <p className="text-text-color-secondary">Crea tu cuenta y comienza a controlar tus finanzas</p>
+            <h1 className="text-4xl font-bold text-gradient mb-2">PAGATODOYA</h1>
+            <p className="text-text-color-secondary">
+              ¡Da el primer paso hacia una vida financiera en orden! Con PAGATODOYA, gestionar tus gastos y planificar tus ahorros es
+              sencillo, seguro y efectivo. Únete a nuestra comunidad y transforma tu futuro hoy.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text-color mb-1">
-                Correo Electrónico
-              </label>
-              <InputText id="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full" />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text-color mb-1">
-                Contraseña
-              </label>
-              <Password id="password" value={password} onChange={(e) => setPassword(e.target.value)} toggleMask className="w-full" />
-            </div>
-
-            <Button type="submit" label="Crear Cuenta" className="w-full p-button-primary" />
-
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-text-color-secondary">O</span>
               </div>
             </div>
 

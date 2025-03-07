@@ -159,13 +159,11 @@ export const Login = () => {
               </div>
               <span className="p-float-label w-full">
                 <IconField iconPosition="left" className="w-full">
-                  <InputIcon className="pi pi-lock" />
                   <Password
                     id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    toggleMask
-                    feedback={false}
+                    feedback={false} // Opcional: desactiva la barra de fuerza de contraseña
                     className="w-full"
                     inputStyle={{
                       width: "100%",
@@ -176,7 +174,6 @@ export const Login = () => {
                     }}
                   />
                 </IconField>
-                <label htmlFor="password">Contraseña</label>
               </span>
             </div>
 
@@ -188,21 +185,13 @@ export const Login = () => {
               </label>
             </div>
 
-            {/* Botón primario - Iniciar Sesión */}
-            <Button
-              type="submit"
-              style={primaryButtonStyles}
-              className="hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
-              label="Iniciar Sesión"
-            />
-
             {/* Botón secundario - Iniciar sesión con Google */}
             <Button
               type="button"
               label="Iniciar sesión con Google"
               icon="pi pi-google"
               onClick={handleGoogleLogin}
-              style={secondaryButtonStyles}
+              style={primaryButtonStyles}
               className="hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
             />
 
