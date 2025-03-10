@@ -62,7 +62,7 @@ const categories = [
 
 export const useFinanceStore = create((set, get) => ({
   transactions: [],
-  categories, // Usa la lista de categorías definida arriba
+  categories, 
   budget: {
     income: 0,
     savingsGoal: 0,
