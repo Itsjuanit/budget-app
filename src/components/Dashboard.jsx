@@ -19,6 +19,7 @@ import {
   where,
   doc,
   deleteDoc,
+  onSnapshot as onSnapshotSingle,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { categories } from "../utils/categories";
@@ -42,6 +43,8 @@ export const Dashboard = () => {
   const [rows, setRows] = useState(10);
   const [confirmDialogVisible, setConfirmDialogVisible] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [budgets, setBudgets] = useState({});
+  const [alertsShown, setAlertsShown] = useState(false);
 
   const toast = useRef(null);
 
@@ -119,6 +122,72 @@ export const Dashboard = () => {
     // Disponible = ingresos - gastos - ahorros
     setMonthlyAvailable(totalIncome - totalExpenses - totalSavings);
   }, [transactions]);
+
+  // Cargar presupuestos en tiempo real
+  useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const budgetRef = doc(db, "budgets", user.uid);
+    const unsubscribe = onSnapshot(budgetRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setBudgets(docSnap.data().categories || {});
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+  
+  // Alertas de presupuesto
+  useEffect(() => {
+    if (alertsShown || !toast.current || Object.keys(budgets).length === 0) return;
+    if (transactions.length === 0) return;
+
+    const expensesByCat = {};
+    transactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        expensesByCat[t.category] = (expensesByCat[t.category] || 0) + t.amount;
+      });
+
+    const alerts = [];
+
+    Object.entries(budgets).forEach(([categoryValue, limit]) => {
+      if (limit <= 0) return;
+      const spent = expensesByCat[categoryValue] || 0;
+      const percentage = (spent / limit) * 100;
+      const label = getCategoryLabel(categoryValue);
+
+      if (percentage >= 100) {
+        alerts.push({
+          severity: "error",
+          summary: "¡Presupuesto excedido!",
+          detail: `${label}: ${formatCurrency(spent)} de ${formatCurrency(limit)} (${Math.round(percentage)}%)`,
+          life: 8000,
+        });
+      } else if (percentage >= 80) {
+        alerts.push({
+          severity: "warn",
+          summary: "Presupuesto al límite",
+          detail: `${label}: ${formatCurrency(spent)} de ${formatCurrency(limit)} (${Math.round(percentage)}%)`,
+          life: 6000,
+        });
+      }
+    });
+
+    if (alerts.length > 0) {
+      // Ordenar: excedidos primero, luego warnings
+      alerts.sort((a, b) => (a.severity === "error" ? -1 : 1));
+
+      alerts.forEach((alert, index) => {
+        setTimeout(() => {
+          toast.current?.show(alert);
+        }, index * 400);
+      });
+      setAlertsShown(true);
+    }
+  }, [transactions, budgets, alertsShown]);
 
   // --- Chart config (solo gastos) ---
   const chartData = {
