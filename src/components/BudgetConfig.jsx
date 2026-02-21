@@ -125,23 +125,24 @@ export const BudgetConfig = ({ visible, onHide }) => {
               key={cat.value}
               className="flex items-center gap-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3"
             >
-              <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-1">
                 <div
                   className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: cat.color }}
                 />
-                <span className="text-sm text-white truncate">{cat.label}</span>
+                <span className="text-sm text-white">{cat.label}</span>
               </div>
-              <InputNumber
-                value={budgets[cat.value] || null}
-                onValueChange={(e) => handleChange(cat.value, e.value)}
-                mode="currency"
-                currency="ARS"
-                locale="es-AR"
-                placeholder="$ 0"
-                className="w-48 flex-shrink-0"
-                inputClassName="text-right text-sm"
-              />
+              <div className="w-28 sm:w-44 flex-shrink-0">
+                <InputNumber
+                  value={budgets[cat.value] || null}
+                  onValueChange={(e) => handleChange(cat.value, e.value)}
+                  mode="currency"
+                  currency="ARS"
+                  locale="es-AR"
+                  placeholder="$ 0"
+                  inputClassName="text-right text-sm"
+                />
+              </div>
             </div>
           ))}
         </div>
