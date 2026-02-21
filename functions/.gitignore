@@ -1,4 +1,4 @@
-# Logs
+functions/.env
 logs
 *.log
 npm-debug.log*
@@ -24,4 +24,3 @@ dist-ssr
 *.sw?
 .env
 .env.local
-functions/.env
