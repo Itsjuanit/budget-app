@@ -218,3 +218,25 @@ a:hover {
   border-radius: 8px;
   font-size: 0.8rem;
 }
+
+/* Scrollbar elegante para dialogs */
+.p-dialog-content::-webkit-scrollbar,
+.p-dialog-content *::-webkit-scrollbar {
+  width: 6px;
+}
+
+.p-dialog-content::-webkit-scrollbar-track,
+.p-dialog-content *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.p-dialog-content::-webkit-scrollbar-thumb,
+.p-dialog-content *::-webkit-scrollbar-thumb {
+  background: #2a2a4a;
+  border-radius: 3px;
+}
+
+.p-dialog-content::-webkit-scrollbar-thumb:hover,
+.p-dialog-content *::-webkit-scrollbar-thumb:hover {
+  background: #3a3a5a;
+}

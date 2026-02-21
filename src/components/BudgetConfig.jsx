@@ -92,7 +92,7 @@ export const BudgetConfig = ({ visible, onHide }) => {
         }
         visible={visible}
         onHide={onHide}
-        style={{ width: "90vw", maxWidth: "550px" }}
+        style={{ width: "90vw", maxWidth: "650px" }}
         breakpoints={{ "640px": "95vw" }}
         footer={
           <div className="flex justify-end gap-2">
@@ -119,13 +119,13 @@ export const BudgetConfig = ({ visible, onHide }) => {
           necesitan límite.
         </p>
 
-        <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-2">
+        <div className="flex flex-col gap-2.5 max-h-[450px] overflow-y-auto overflow-x-hidden pr-3">
           {expenseCategories.map((cat) => (
             <div
               key={cat.value}
-              className="flex items-center justify-between gap-4 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3"
+              className="flex items-center gap-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3"
             >
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div
                   className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: cat.color }}
@@ -139,7 +139,7 @@ export const BudgetConfig = ({ visible, onHide }) => {
                 currency="ARS"
                 locale="es-AR"
                 placeholder="$ 0"
-                className="w-40"
+                className="w-48 flex-shrink-0"
                 inputClassName="text-right text-sm"
               />
             </div>
