@@ -1,60 +1,117 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { collection, query, where, getDocs, orderBy, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  doc,
+  deleteDoc,
+  updateDoc,
+  limit,
+} from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 import { getAuth } from "firebase/auth";
 
 const TransactionsContext = createContext();
+
+/**
+ * Genera un array de strings "YYYY-MM" desde startMonth hasta endMonth inclusive.
+ * Ej: generateMonthRange("2025-03", "2025-07") → ["2025-03", "2025-04", "2025-05", "2025-06", "2025-07"]
+ */
+const generateMonthRange = (startMonth, endMonth) => {
+  const [startYear, startMon] = startMonth.split("-").map(Number);
+  const [endYear, endMon] = endMonth.split("-").map(Number);
+
+  const months = [];
+  let year = startYear;
+  let month = startMon;
+
+  while (year < endYear || (year === endYear && month <= endMon)) {
+    months.push(`${year}-${String(month).padStart(2, "0")}`);
+    month++;
+    if (month > 12) {
+      month = 1;
+      year++;
+    }
+  }
+
+  return months;
+};
+
+/**
+ * Retorna el mes actual en formato "YYYY-MM".
+ */
+const getCurrentMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
 
 export const TransactionsProvider = ({ children }) => {
   const [transactions, setTransactions] = useState([]);
   const [availableMonths, setAvailableMonths] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(null);
 
+  // Cargar meses disponibles una sola vez al montar
   useEffect(() => {
     const loadAvailableMonths = async () => {
       try {
         const auth = getAuth();
         const user = auth.currentUser;
-
         if (!user) return;
 
-        const transactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid), orderBy("monthYear"));
+        // Obtener solo la transacción más antigua para saber el primer mes
+        const oldestQuery = query(
+          collection(db, "transactions"),
+          where("userId", "==", user.uid),
+          orderBy("monthYear", "asc"),
+          limit(1)
+        );
 
-        const snapshot = await getDocs(transactionsRef);
+        const snapshot = await getDocs(oldestQuery);
 
-        const uniqueMonths = new Set();
-        snapshot.docs.forEach((doc) => {
-          uniqueMonths.add(doc.data().monthYear);
-        });
-
-        const monthsArray = Array.from(uniqueMonths).sort();
-        setAvailableMonths(monthsArray);
-
-        if (monthsArray.length > 0 && !selectedMonth) {
-          setSelectedMonth(monthsArray[monthsArray.length - 1]);
+        if (snapshot.empty) {
+          // Sin transacciones — solo mostrar mes actual
+          setAvailableMonths([getCurrentMonth()]);
+          return;
         }
+
+        const firstMonth = snapshot.docs[0].data().monthYear;
+        const currentMonth = getCurrentMonth();
+
+        // Generar todos los meses desde el primero hasta el actual
+        const allMonths = generateMonthRange(firstMonth, currentMonth);
+        setAvailableMonths(allMonths);
       } catch (error) {
         console.error("Error al cargar meses disponibles:", error);
       }
     };
 
     loadAvailableMonths();
-  }, [selectedMonth]);
+  }, []);
 
-  const loadTransactionsForMonth = async (month) => {
+  const loadTransactionsForMonth = useCallback(async (month) => {
     try {
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user || !month) return;
 
-      const transactionsRef = query(collection(db, "transactions"), where("userId", "==", user.uid), where("monthYear", "==", month));
+      const transactionsRef = query(
+        collection(db, "transactions"),
+        where("userId", "==", user.uid),
+        where("monthYear", "==", month)
+      );
 
       const snapshot = await getDocs(transactionsRef);
       const data = snapshot.docs.map((doc) => {
         const transaction = doc.data();
         const remainingAmount =
-          transaction.type === "expense" && transaction.category === "tarjeta-credito" && transaction.installmentsRemaining > 0
-            ? (transaction.amount * (1 + transaction.interest / 100)) / transaction.installments
+          transaction.type === "expense" &&
+          transaction.category === "tarjeta-credito" &&
+          transaction.installments > 0 &&
+          transaction.installmentsRemaining > 0
+            ? (transaction.amount * (1 + (transaction.interest || 0) / 100)) /
+              transaction.installments
             : 0;
 
         return {
@@ -68,15 +125,17 @@ export const TransactionsProvider = ({ children }) => {
     } catch (error) {
       console.error("Error al cargar transacciones del mes:", error);
     }
-  };
+  }, []);
 
-  // Actualizar una transacción
   const updateTransaction = async (updatedTransaction) => {
     try {
       const transactionRef = doc(db, "transactions", updatedTransaction.id);
-      await updateDoc(transactionRef, updatedTransaction);
+      const { id, ...dataToUpdate } = updatedTransaction;
+      await updateDoc(transactionRef, dataToUpdate);
 
-      setTransactions((prev) => prev.map((t) => (t.id === updatedTransaction.id ? updatedTransaction : t)));
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === id ? updatedTransaction : t))
+      );
     } catch (error) {
       console.error("Error al actualizar transacción:", error);
     }

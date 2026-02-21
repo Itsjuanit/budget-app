@@ -1,84 +1,313 @@
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { formatCurrency } from "./format";
+import { categories as defaultCategories } from "./categories";
 
-// Mapeo de meses en español abreviados
-const monthMap = {
-  0: "ENE",
-  1: "FEB",
-  2: "MAR",
-  3: "ABR",
-  4: "MAY",
-  5: "JUN",
-  6: "JUL",
-  7: "AGO",
-  8: "SEP",
-  9: "OCT",
-  10: "NOV",
-  11: "DIC",
+// Paleta de colores consistente con la app
+const COLORS = {
+  primary: [167, 139, 250],       // #a78bfa — purple
+  dark: [26, 26, 46],             // #1a1a2e
+  surface: [30, 30, 58],          // #1e1e3a
+  text: [226, 232, 240],          // #e2e8f0
+  textSecondary: [148, 163, 184], // #94a3b8
+  green: [52, 211, 153],          // #34d399
+  red: [248, 113, 113],           // #f87171
+  white: [255, 255, 255],
 };
 
-// Función para generar el nombre del archivo
-const generatePDFFileName = (selectedMonth, userId) => {
-  const [year, month] = selectedMonth.split("-"); // Separar año y mes del formato "YYYY-MM"
-  const monthAbbreviation = monthMap[parseInt(month, 10) - 1]; // Convertir mes a índice y obtener la abreviatura
-  const timestamp = new Date().getTime(); // Identificador único basado en tiempo
-
-  return `PAGATODO-${monthAbbreviation}-${year}-${userId}-${timestamp}.pdf`;
+/**
+ * Obtiene el label legible de una categoría a partir de su value.
+ */
+const getCategoryLabel = (value) => {
+  const allCategories = [
+    ...defaultCategories.income,
+    ...defaultCategories.expense,
+  ];
+  return allCategories.find((c) => c.value === value)?.label || value;
 };
 
-export const generatePDF = (data, selectedMonth, userId) => {
-  const fileName = generatePDFFileName(selectedMonth, userId);
-  const doc = new jsPDF();
+/**
+ * Genera el nombre del archivo PDF.
+ */
+const generateFileName = (selectedMonth) => {
+  const [year, month] = selectedMonth.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  const monthName = format(date, "MMMM", { locale: es });
+  return `PAGATODO-${monthName}-${year}.pdf`;
+};
 
-  // Crear título
-  doc.text(`Reporte Mensual - ${format(new Date(selectedMonth), "MMMM yyyy")}`, 14, 15);
+/**
+ * Dibuja fondo oscuro en toda la página.
+ */
+const drawPageBackground = (doc) => {
+  doc.setFillColor(...COLORS.dark);
+  doc.rect(
+    0,
+    0,
+    doc.internal.pageSize.getWidth(),
+    doc.internal.pageSize.getHeight(),
+    "F"
+  );
+};
 
-  // Ordenar las transacciones por fecha (más antigua a más nueva)
-  const sortedTransactions = [...data.transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+/**
+ * Dibuja el header del PDF con logo y título.
+ */
+const drawHeader = (doc, selectedMonth) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Crear tabla de transacciones
-  const tableColumn = ["Fecha", "Tipo", "Categoría", "Descripción", "Monto"];
-  const tableRows = sortedTransactions.map((transaction) => [
-    // Formatear la fecha a "dd/MM/yyyy"
-    format(new Date(transaction.date), "dd/MM/yyyy"),
+  // Fondo header
+  doc.setFillColor(...COLORS.dark);
+  doc.rect(0, 0, pageWidth, 40, "F");
 
-    // Traducir "income" a "INGRESO" y "expense" a "EGRESO"
-    transaction.type === "income" ? "INGRESO" : "EGRESO",
+  // Línea accent
+  doc.setFillColor(...COLORS.primary);
+  doc.rect(0, 40, pageWidth, 2, "F");
 
-    // Mostrar categoría o "N/A" si está vacía
-    transaction.category || "N/A",
+  // Título
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COLORS.white);
+  doc.text("PAGATODO", 14, 22);
 
-    // Mostrar descripción o "N/A" si está vacía
-    transaction.description || "N/A",
+  // Subtítulo — mes y año
+  const [year, month] = selectedMonth.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  const monthLabel = format(date, "MMMM yyyy", { locale: es });
+  const capitalizedMonth =
+    monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
-    // Formatear el monto como moneda
-    formatCurrency(transaction.amount),
-  ]);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COLORS.textSecondary);
+  doc.text(`Reporte mensual — ${capitalizedMonth}`, 14, 33);
 
-  // Agregar la tabla al PDF
-  doc.autoTable({
-    head: [tableColumn], // Encabezados de la tabla
-    body: tableRows, // Filas procesadas
-    startY: 20, // Posición inicial debajo del título
+  // Fecha de generación
+  doc.setFontSize(8);
+  doc.text(
+    `Generado: ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+    pageWidth - 14,
+    33,
+    { align: "right" }
+  );
+};
+
+/**
+ * Dibuja las cards de resumen (ingresos, gastos, ahorro).
+ */
+const drawSummaryCards = (doc, data, startY) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const cardWidth = (pageWidth - 42) / 3;
+  const cardHeight = 28;
+  const cards = [
+    {
+      label: "Ingresos",
+      value: formatCurrency(data.income),
+      color: COLORS.green,
+    },
+    {
+      label: "Gastos",
+      value: formatCurrency(data.expenses),
+      color: COLORS.red,
+    },
+    {
+      label: "Ahorro neto",
+      value: formatCurrency(data.savings),
+      color: data.savings >= 0 ? COLORS.green : COLORS.red,
+    },
+  ];
+
+  cards.forEach((card, i) => {
+    const x = 14 + i * (cardWidth + 7);
+
+    // Fondo card
+    doc.setFillColor(...COLORS.surface);
+    doc.roundedRect(x, startY, cardWidth, cardHeight, 3, 3, "F");
+
+    // Línea superior de color
+    doc.setFillColor(...card.color);
+    doc.rect(x, startY, cardWidth, 2, "F");
+
+    // Label
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.textSecondary);
+    doc.text(card.label, x + 6, startY + 11);
+
+    // Valor
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...card.color);
+    doc.text(card.value, x + 6, startY + 22);
   });
 
-  // Calcular las cuotas restantes para las transacciones de tipo "tarjeta de crédito"
-  const creditCardTransactions = data.transactions.filter((t) => t.category === "tarjeta-credito");
-  const totalRemainingInstallments = creditCardTransactions.reduce((acc, t) => {
-    return acc + (t.installmentsRemaining || 0) * (t.amount / t.installments);
+  return startY + cardHeight + 10;
+};
+
+/**
+ * Dibuja la tabla de transacciones.
+ */
+const drawTransactionsTable = (doc, transactions, startY) => {
+  const sortedTransactions = [...transactions].sort(
+    (a, b) => new Date(a.date) - new Date(b.date)
+  );
+
+  const tableRows = sortedTransactions.map((t) => [
+    format(new Date(t.date), "dd/MM/yyyy"),
+    t.type === "income" ? "INGRESO" : "GASTO",
+    getCategoryLabel(t.category),
+    t.description || "—",
+    formatCurrency(t.amount),
+  ]);
+
+  doc.autoTable({
+    head: [["Fecha", "Tipo", "Categoría", "Descripción", "Monto"]],
+    body: tableRows,
+    startY,
+    theme: "plain",
+    willDrawPage: (data) => {
+      // Fondo oscuro en páginas adicionales (la primera ya lo tiene)
+      if (data.pageNumber > 1) {
+        drawPageBackground(doc);
+      }
+    },
+    margin: { top: 15 },
+    styles: {
+      fontSize: 8,
+      cellPadding: 4,
+      textColor: COLORS.text,
+      lineColor: [42, 42, 74],
+      lineWidth: 0.3,
+    },
+    headStyles: {
+      fillColor: COLORS.surface,
+      textColor: COLORS.textSecondary,
+      fontStyle: "bold",
+      fontSize: 7,
+      halign: "left",
+    },
+    bodyStyles: {
+      fillColor: false,
+    },
+    alternateRowStyles: {
+      fillColor: [24, 24, 44],
+    },
+    columnStyles: {
+      0: { cellWidth: 24 },
+      1: { cellWidth: 22 },
+      4: { halign: "right", cellWidth: 30 },
+    },
+    didParseCell: (data) => {
+      // Colorear tipo
+      if (data.section === "body" && data.column.index === 1) {
+        const value = data.cell.raw;
+        data.cell.styles.textColor =
+          value === "INGRESO" ? COLORS.green : COLORS.red;
+        data.cell.styles.fontStyle = "bold";
+      }
+      // Colorear monto
+      if (data.section === "body" && data.column.index === 4) {
+        const type = data.row.raw[1];
+        data.cell.styles.textColor =
+          type === "INGRESO" ? COLORS.green : COLORS.red;
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+
+  return doc.autoTable.previous.finalY;
+};
+
+/**
+ * Dibuja la sección de cuotas pendientes de tarjeta de crédito.
+ */
+const drawCreditCardSummary = (doc, transactions, startY) => {
+  const creditCardTransactions = transactions.filter(
+    (t) => t.category === "tarjeta-credito" && t.installments > 0
+  );
+
+  if (creditCardTransactions.length === 0) return startY;
+
+  const totalRemaining = creditCardTransactions.reduce((acc, t) => {
+    const perInstallment =
+      t.installments > 0 ? t.amount / t.installments : 0;
+    const remaining = t.installmentsRemaining || 0;
+    return acc + remaining * perInstallment;
   }, 0);
 
-  // Obtener la posición final de la tabla para agregar estadísticas
-  const finalY = doc.autoTable.previous.finalY;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const y = startY + 8;
 
-  // Agregar estadísticas generales al PDF
-  doc.text(`Ingresos Totales: ${formatCurrency(data.income)}`, 14, finalY + 10);
-  doc.text(`Gastos Totales: ${formatCurrency(data.expenses)}`, 14, finalY + 20);
-  doc.text(`Ahorros Netos: ${formatCurrency(data.savings)}`, 14, finalY + 30);
-  doc.text(`Cuotas Pendientes (Tarjetas): ${formatCurrency(totalRemainingInstallments)}`, 14, finalY + 40);
+  // Fondo
+  doc.setFillColor(...COLORS.surface);
+  doc.roundedRect(14, y, pageWidth - 28, 20, 3, 3, "F");
 
-  // Descargar el archivo PDF con el nombre generado
+  // Línea lateral
+  doc.setFillColor(...COLORS.primary);
+  doc.rect(14, y, 2, 20, "F");
+
+  // Texto
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COLORS.textSecondary);
+  doc.text("Cuotas pendientes (Tarjetas de crédito)", 22, y + 8);
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COLORS.primary);
+  doc.text(formatCurrency(totalRemaining), 22, y + 16);
+
+  return y + 28;
+};
+
+/**
+ * Dibuja el footer del PDF.
+ */
+const drawFooter = (doc) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  doc.setFillColor(...COLORS.dark);
+  doc.rect(0, pageHeight - 15, pageWidth, 15, "F");
+
+  doc.setFontSize(7);
+  doc.setTextColor(...COLORS.textSecondary);
+  doc.text(
+    "PAGATODO — Generado automáticamente",
+    pageWidth / 2,
+    pageHeight - 6,
+    { align: "center" }
+  );
+};
+
+/**
+ * Genera y descarga el PDF del reporte mensual.
+ */
+export const generatePDF = (data, selectedMonth) => {
+  const doc = new jsPDF();
+  const fileName = generateFileName(selectedMonth);
+
+  // Fondo primera página
+  drawPageBackground(doc);
+
+  // Secciones
+  drawHeader(doc, selectedMonth);
+  const afterSummary = drawSummaryCards(doc, data, 50);
+  const afterTable = drawTransactionsTable(
+    doc,
+    data.transactions,
+    afterSummary
+  );
+  drawCreditCardSummary(doc, data.transactions, afterTable);
+
+  // Footer en todas las páginas
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    drawFooter(doc);
+  }
+
   doc.save(fileName);
 };

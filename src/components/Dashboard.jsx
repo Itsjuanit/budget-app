@@ -7,10 +7,18 @@ import { Toast } from "primereact/toast";
 import { Paginator } from "primereact/paginator";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
+import { Tag } from "primereact/tag";
 import { formatCurrency } from "../utils/format";
 import { Wallet, TrendingUp, PiggyBank } from "lucide-react";
 import { db } from "@/firebaseConfig";
-import { collection, onSnapshot, query, where, doc, deleteDoc } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+  doc,
+  deleteDoc,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { categories } from "../utils/categories";
 import { EditTransactionForm } from "./EditTransactionForm";
@@ -20,34 +28,32 @@ import { ConfirmDialog } from "./ConfirmDialog";
 export const Dashboard = () => {
   const [transactions, setTransactions] = useState([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
   const [monthlySavings, setMonthlySavings] = useState(0);
   const [expensesByCategory, setExpensesByCategory] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [first, setFirst] = useState(0);
-  const [rows, setRows] = useState(10); // Máximo de 10 entradas por página para mobile
+  const [rows, setRows] = useState(10);
   const [confirmDialogVisible, setConfirmDialogVisible] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
 
   const toast = useRef(null);
 
-  // Detectar si estamos en una pantalla pequeña
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768); // Menor a 768px será considerado móvil
-    };
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     handleResize();
     window.addEventListener("resize", handleResize);
-
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
-
-    const currentMonthYear = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    const currentMonthYear = `${new Date().getFullYear()}-${String(
+      new Date().getMonth() + 1
+    ).padStart(2, "0")}`;
 
     if (user) {
       const userTransactionsRef = query(
@@ -61,7 +67,6 @@ export const Dashboard = () => {
           id: doc.id,
           ...doc.data(),
         }));
-
         data.sort((a, b) => new Date(b.date) - new Date(a.date));
         setTransactions(data);
       });
@@ -71,12 +76,15 @@ export const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const expenseTransactions = transactions.filter((t) => t.type === "expense");
+    const expenseTransactions = transactions.filter(
+      (t) => t.type === "expense"
+    );
 
     const expensesGroupedByCategory = categories.expense
       .map((category) => {
-        const total = expenseTransactions.filter((t) => t.category === category.value).reduce((sum, t) => sum + t.amount, 0);
-
+        const total = expenseTransactions
+          .filter((t) => t.category === category.value)
+          .reduce((sum, t) => sum + t.amount, 0);
         return {
           category: category.label,
           amount: total,
@@ -87,32 +95,67 @@ export const Dashboard = () => {
 
     setExpensesByCategory(expensesGroupedByCategory);
 
-    const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalExpenses = expenseTransactions.reduce(
+      (sum, t) => sum + t.amount,
+      0
+    );
     setMonthlyExpenses(totalExpenses);
 
-    const totalIncome = transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+    const totalIncome = transactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+    setMonthlyIncome(totalIncome);
     setMonthlySavings(totalIncome - totalExpenses);
   }, [transactions]);
 
+  // --- Chart config ---
   const chartData = {
     labels: expensesByCategory.map((item) => item.category),
     datasets: [
       {
         data: expensesByCategory.map((item) => item.amount),
         backgroundColor: expensesByCategory.map((item) => item.color),
+        borderColor: "transparent",
+        hoverBorderColor: "#ffffff33",
+        hoverBorderWidth: 2,
       },
     ],
   };
 
   const chartOptions = {
+    cutout: "60%",
     plugins: {
       legend: {
         display: true,
         position: "bottom",
+        labels: {
+          color: "#e2e8f0",
+          padding: 16,
+          usePointStyle: true,
+          pointStyleWidth: 10,
+          font: { size: 12 },
+        },
+      },
+      tooltip: {
+        backgroundColor: "#1e1e3a",
+        titleColor: "#e2e8f0",
+        bodyColor: "#e2e8f0",
+        borderColor: "#2a2a4a",
+        borderWidth: 1,
+        padding: 12,
+        cornerRadius: 8,
+        callbacks: {
+          label: (context) => {
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = ((context.parsed / total) * 100).toFixed(1);
+            return ` ${context.label}: ${formatCurrency(context.parsed)} (${percentage}%)`;
+          },
+        },
       },
     },
   };
 
+  // --- Handlers ---
   const handleEdit = (transaction) => {
     setTransactionToEdit(transaction);
     setIsModalOpen(true);
@@ -125,10 +168,8 @@ export const Dashboard = () => {
 
   const handleDelete = async () => {
     if (!transactionToDelete) return;
-
     try {
-      const transactionDocRef = doc(db, "transactions", transactionToDelete.id);
-      await deleteDoc(transactionDocRef);
+      await deleteDoc(doc(db, "transactions", transactionToDelete.id));
       toast.current.show({
         severity: "success",
         summary: "Éxito",
@@ -154,36 +195,91 @@ export const Dashboard = () => {
     setRows(event.rows);
   };
 
+  // --- Helpers de render ---
+  const savingsPercentage =
+    monthlyIncome > 0 ? Math.round((1 - monthlyExpenses / monthlyIncome) * 100) : 0;
+
+  const getCategoryLabel = (value) => {
+    const allCategories = [...categories.income, ...categories.expense];
+    return allCategories.find((c) => c.value === value)?.label || value;
+  };
+
+  // --- Summary cards config ---
+  const summaryCards = [
+    {
+      icon: <Wallet className="w-8 h-8" />,
+      label: "Gastos mensuales",
+      value: formatCurrency(monthlyExpenses),
+      color: "text-red-400",
+      borderColor: "border-red-500/30",
+      bgGlow: "bg-red-500/5",
+    },
+    {
+      icon: <PiggyBank className="w-8 h-8" />,
+      label: "Ahorro mensual",
+      value: formatCurrency(monthlySavings),
+      color: monthlySavings >= 0 ? "text-emerald-400" : "text-red-400",
+      borderColor:
+        monthlySavings >= 0 ? "border-emerald-500/30" : "border-red-500/30",
+      bgGlow: monthlySavings >= 0 ? "bg-emerald-500/5" : "bg-red-500/5",
+    },
+    {
+      icon: <TrendingUp className="w-8 h-8" />,
+      label: "Porcentaje de ahorro",
+      value: `${savingsPercentage}%`,
+      color: savingsPercentage >= 0 ? "text-purple-400" : "text-red-400",
+      borderColor: "border-purple-500/30",
+      bgGlow: "bg-purple-500/5",
+    },
+  ];
+
+  // --- Mobile cards ---
   const renderCards = () => {
-    const start = first;
-    const end = first + rows;
-    const currentTransactions = transactions.slice(start, end);
+    const currentTransactions = transactions.slice(first, first + rows);
 
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {currentTransactions.map((transaction) => (
-          <div key={transaction.id} className="border p-4 rounded-md shadow-md bg-white">
-            <p>
-              <strong>Fecha:</strong> {format(new Date(transaction.date), "dd/MM/yyyy")}
-            </p>
-            <p>
-              <strong>Descripción:</strong> {transaction.description}
-            </p>
-            <p>
-              <strong>Monto:</strong> {formatCurrency(transaction.amount)}
-            </p>
-            <div className="flex gap-2 mt-2">
+          <div
+            key={transaction.id}
+            className="rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] p-4"
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex-1">
+                <p className="text-white font-medium text-sm">
+                  {transaction.description}
+                </p>
+                <p className="text-[#94a3b8] text-xs mt-1">
+                  {format(new Date(transaction.date), "dd/MM/yyyy")} ·{" "}
+                  {getCategoryLabel(transaction.category)}
+                </p>
+              </div>
+              <span
+                className={`text-sm font-bold ${
+                  transaction.type === "income"
+                    ? "text-emerald-400"
+                    : "text-red-400"
+                }`}
+              >
+                {transaction.type === "income" ? "+" : "-"}
+                {formatCurrency(transaction.amount)}
+              </span>
+            </div>
+            <div className="flex gap-2 justify-end">
               <Button
-                label="Editar"
                 icon="pi pi-pencil"
-                className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
+                className="p-button-rounded p-button-text p-button-sm"
+                tooltip="Editar"
+                tooltipOptions={{ position: "top" }}
                 onClick={() => handleEdit(transaction)}
               />
               <Button
-                label="Eliminar"
                 icon="pi pi-trash"
-                className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
+                className="p-button-rounded p-button-text p-button-sm"
+                tooltip="Eliminar"
+                tooltipOptions={{ position: "top" }}
                 onClick={() => confirmDelete(transaction)}
+                severity="danger"
               />
             </div>
           </div>
@@ -194,11 +290,13 @@ export const Dashboard = () => {
           totalRecords={transactions.length}
           rowsPerPageOptions={[5, 10, 20]}
           onPageChange={onPageChange}
+          className="mt-2"
         />
       </div>
     );
   };
 
+  // --- Desktop table ---
   const renderTable = () => (
     <DataTable
       value={transactions}
@@ -206,31 +304,84 @@ export const Dashboard = () => {
       rows={10}
       rowsPerPageOptions={[5, 10, 25, 50]}
       className="p-datatable-sm"
-      style={{ borderCollapse: "separate", width: "100%" }}
+      emptyMessage="No hay transacciones este mes."
+      stripedRows
     >
-      <Column field="date" header="Fecha" body={(rowData) => format(new Date(rowData.date), "dd/MM/yyyy")} sortable />
-      <Column field="description" header="Descripción" sortable />
-      <Column field="amount" header="Monto" body={(rowData) => formatCurrency(rowData.amount)} sortable />
+      <Column
+        field="date"
+        header="Fecha"
+        body={(row) => (
+          <span className="text-[#cbd5e1] text-sm">
+            {format(new Date(row.date), "dd/MM/yyyy")}
+          </span>
+        )}
+        sortable
+      />
+      <Column
+        field="description"
+        header="Descripción"
+        body={(row) => (
+          <span className="text-white text-sm font-medium">
+            {row.description}
+          </span>
+        )}
+        sortable
+      />
+      <Column
+        field="category"
+        header="Categoría"
+        body={(row) => (
+          <span className="text-[#94a3b8] text-sm">
+            {getCategoryLabel(row.category)}
+          </span>
+        )}
+        sortable
+      />
+      <Column
+        field="type"
+        header="Tipo"
+        body={(row) => (
+          <Tag
+            value={row.type === "income" ? "Ingreso" : "Gasto"}
+            severity={row.type === "income" ? "success" : "danger"}
+            className="text-xs"
+          />
+        )}
+        sortable
+      />
+      <Column
+        field="amount"
+        header="Monto"
+        body={(row) => (
+          <span
+            className={`text-sm font-bold ${
+              row.type === "income" ? "text-emerald-400" : "text-red-400"
+            }`}
+          >
+            {row.type === "income" ? "+" : "-"}
+            {formatCurrency(row.amount)}
+          </span>
+        )}
+        sortable
+      />
       <Column
         header="Acciones"
-        body={(rowData) => (
-          <div className="flex gap-2">
+        body={(row) => (
+          <div className="flex gap-1">
             <Button
-              placeholder="Top"
-              tooltip="Editar"
-              label=""
               icon="pi pi-pencil"
-              className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
-              onClick={() => handleEdit(rowData)}
+              className="p-button-rounded p-button-text p-button-sm"
+              tooltip="Editar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => handleEdit(row)}
             />
-
             <Button
-              placeholder="Top"
-              tooltip="Eliminar"
-              label=""
               icon="pi pi-trash"
-              className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
-              onClick={() => confirmDelete(rowData)}
+              className="p-button-rounded p-button-text p-button-sm"
+              tooltip="Eliminar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => confirmDelete(row)}
+              severity="danger"
             />
           </div>
         )}
@@ -238,72 +389,88 @@ export const Dashboard = () => {
     </DataTable>
   );
 
+  // --- Render principal ---
   return (
-    <div className="p-6">
+    <div>
       <Toast ref={toast} />
-      <h1 className="text-3xl font-bold mb-6">Análisis del gasto</h1>
+      <h1 className="text-2xl font-bold mb-6 text-white">
+        Análisis del gasto
+      </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card className="shadow-lg">
-          <div className="flex items-center">
-            <Wallet className="w-10 h-10 text-blue-500 mr-4" />
-            <div>
-              <h3 className="text-lg font-semibold text-gray-600">Gastos mensuales</h3>
-              <p className="text-2xl font-bold text-gray-800">{formatCurrency(monthlyExpenses)}</p>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {summaryCards.map((card, index) => (
+          <div
+            key={index}
+            className={`rounded-xl border ${card.borderColor} ${card.bgGlow} p-5`}
+          >
+            <div className="flex items-center gap-4">
+              <div className={`${card.color} opacity-80`}>{card.icon}</div>
+              <div>
+                <p className="text-[#94a3b8] text-sm">{card.label}</p>
+                <p className={`text-2xl font-bold ${card.color} mt-1`}>
+                  {card.value}
+                </p>
+              </div>
             </div>
           </div>
-        </Card>
-
-        <Card className="shadow-lg">
-          <div className="flex items-center">
-            <PiggyBank className="w-10 h-10 text-green-500 mr-4" />
-            <div>
-              <h3 className="text-lg font-semibold text-gray-600">Ahorro mensual</h3>
-              <p className="text-2xl font-bold text-gray-800">{formatCurrency(monthlySavings)}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="shadow-lg">
-          <div className="flex items-center">
-            <TrendingUp className="w-10 h-10 text-purple-500 mr-4" />
-            <div>
-              <h3 className="text-lg font-semibold text-gray-600">Porcentaje de ahorro</h3>
-              <p className="text-2xl font-bold text-gray-800">
-                {monthlyExpenses > 0 && transactions.some((t) => t.type === "income")
-                  ? `${Math.round(
-                      (1 - monthlyExpenses / transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0)) * 100
-                    )}%`
-                  : "0%"}
-              </p>
-            </div>
-          </div>
-        </Card>
+        ))}
       </div>
 
+      {/* Chart + Table */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="shadow-lg">
-          <h3 className="text-xl font-semibold mb-4">Gastos por categoría</h3>
-          <Chart type="pie" data={chartData} options={chartOptions} className="w-full md:w-30rem" />
-        </Card>
-        <Card className="shadow-lg">
-          <h3 className="text-xl font-semibold mb-4">Transacciones recientes</h3>
-          {isMobile ? renderCards() : renderTable()}
-        </Card>
+        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
+          <h3 className="text-lg font-semibold mb-4 text-white">
+            Gastos por categoría
+          </h3>
+          {expensesByCategory.length > 0 ? (
+            <Chart
+              type="doughnut"
+              data={chartData}
+              options={chartOptions}
+              className="w-full"
+            />
+          ) : (
+            <p className="text-[#94a3b8] text-sm text-center py-8">
+              No hay gastos registrados este mes.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
+          <h3 className="text-lg font-semibold mb-4 text-white">
+            Transacciones recientes
+          </h3>
+          {transactions.length > 0 ? (
+            isMobile ? (
+              renderCards()
+            ) : (
+              renderTable()
+            )
+          ) : (
+            <p className="text-[#94a3b8] text-sm text-center py-8">
+              No hay transacciones este mes.
+            </p>
+          )}
+        </div>
       </div>
 
+      {/* Edit Dialog */}
       <Dialog
         header="Editar Transacción"
         visible={isModalOpen}
         style={{ width: "45vw" }}
         onHide={() => setIsModalOpen(false)}
-        breakpoints={{
-          "960px": "75vw",
-          "640px": "90vw",
-        }}
+        breakpoints={{ "960px": "75vw", "640px": "90vw" }}
       >
-        {transactionToEdit && <EditTransactionForm transaction={transactionToEdit} onClose={() => setIsModalOpen(false)} />}
+        {transactionToEdit && (
+          <EditTransactionForm
+            transaction={transactionToEdit}
+            onClose={() => setIsModalOpen(false)}
+          />
+        )}
       </Dialog>
+
       <ConfirmDialog
         visible={confirmDialogVisible}
         onHide={() => setConfirmDialogVisible(false)}

@@ -27,30 +27,32 @@ export const TransactionForm = () => {
   const auth = getAuth();
   const user = auth.currentUser;
 
-  // Cargar las categorías personalizadas del usuario (cada categoría se asigna al userId)
   useEffect(() => {
     const fetchCustomCategories = async () => {
       if (!user) return;
       try {
-        const q = query(collection(db, "customCategories"), where("userId", "==", user.uid));
+        const q = query(
+          collection(db, "customCategories"),
+          where("userId", "==", user.uid)
+        );
         const querySnapshot = await getDocs(q);
         const income = [];
         const expense = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          if (data.type === "income") income.push({ label: data.label, value: data.value });
-          else if (data.type === "expense") expense.push({ label: data.label, value: data.value });
+          if (data.type === "income")
+            income.push({ label: data.label, value: data.value });
+          else if (data.type === "expense")
+            expense.push({ label: data.label, value: data.value });
         });
         setCustomCategories({ income, expense });
       } catch (error) {
         console.error("Error cargando categorías personalizadas:", error);
       }
     };
-
     fetchCustomCategories();
   }, [user]);
 
-  // Fusionar categorías predefinidas con las personalizadas del usuario
   const mergedCategories = {
     income: [...defaultCategories.income, ...customCategories.income],
     expense: [...defaultCategories.expense, ...customCategories.expense],
@@ -58,7 +60,10 @@ export const TransactionForm = () => {
 
   const isSameMonthAndYear = (selectedDate) => {
     const currentDate = new Date();
-    return selectedDate.getFullYear() === currentDate.getFullYear() && selectedDate.getMonth() === currentDate.getMonth();
+    return (
+      selectedDate.getFullYear() === currentDate.getFullYear() &&
+      selectedDate.getMonth() === currentDate.getMonth()
+    );
   };
 
   const validateFields = () => {
@@ -67,8 +72,10 @@ export const TransactionForm = () => {
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
-    if (!isSameMonthAndYear(date)) newErrors.date = "Solo puedes registrar transacciones en el mes y año actual.";
-    if (category === "tarjeta-credito" && installments < 0) newErrors.installments = "Las cuotas no pueden ser negativas.";
+    if (!isSameMonthAndYear(date))
+      newErrors.date = "Solo puedes registrar transacciones en el mes y año actual.";
+    if (category === "tarjeta-credito" && installments < 0)
+      newErrors.installments = "Las cuotas no pueden ser negativas.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -81,13 +88,15 @@ export const TransactionForm = () => {
       toast.current.show({
         severity: "error",
         summary: "Error",
-        detail: "No estás autenticado. Por favor, inicia sesión.",
+        detail: "No estás autenticado. Por favor, iniciá sesión.",
         life: 3000,
       });
       return;
     }
 
-    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const monthYear = `${date.getFullYear()}-${String(
+      date.getMonth() + 1
+    ).padStart(2, "0")}`;
 
     const transaction = {
       userId: user.uid,
@@ -102,8 +111,7 @@ export const TransactionForm = () => {
     };
 
     try {
-      const docRef = await addDoc(collection(db, "transactions"), transaction);
-      console.log("Transacción agregada con ID:", docRef.id);
+      await addDoc(collection(db, "transactions"), transaction);
       setAmount(null);
       setCategory("");
       setDescription("");
@@ -127,7 +135,6 @@ export const TransactionForm = () => {
     }
   };
 
-  // Función para guardar una nueva categoría personalizada, asignada al usuario
   const handleSaveNewCategory = async () => {
     if (!newCatName.trim()) return;
 
@@ -142,7 +149,10 @@ export const TransactionForm = () => {
       await addDoc(collection(db, "customCategories"), newCategory);
       setCustomCategories((prev) => ({
         ...prev,
-        [type]: [...prev[type], { label: newCategory.label, value: newCategory.value }],
+        [type]: [
+          ...prev[type],
+          { label: newCategory.label, value: newCategory.value },
+        ],
       }));
       setCategory(newCategory.value);
       setNewCatName("");
@@ -164,27 +174,22 @@ export const TransactionForm = () => {
     }
   };
 
-  // Opciones para el Dropdown (sólo las categorías existentes)
-  const categoryOptions = mergedCategories[type]?.map((c) => ({ label: c.label, value: c.value }));
-
-  const secondaryButtonStyles = {
-    background: "#fff",
-    color: "#6b6e72",
-    border: "1px solid #cbd5e0",
-    padding: "1rem",
-    width: "40%",
-    fontWeight: 100,
-    transition: "transform 0.2s, box-shadow 0.2s",
-  };
+  const categoryOptions = mergedCategories[type]?.map((c) => ({
+    label: c.label,
+    value: c.value,
+  }));
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5"
+      >
         <Toast ref={toast} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
-            <label className="font-medium">Tipo</label>
+            <label className="text-sm font-medium text-[#94a3b8]">Tipo</label>
             <Dropdown
               value={type}
               options={[
@@ -200,7 +205,7 @@ export const TransactionForm = () => {
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="font-medium">Monto</label>
+            <label className="text-sm font-medium text-[#94a3b8]">Monto</label>
             <InputNumber
               value={amount}
               onValueChange={(e) => setAmount(e.value)}
@@ -213,64 +218,138 @@ export const TransactionForm = () => {
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="font-medium">Categoría</label>
-            <Dropdown
-              value={category}
-              options={categoryOptions}
-              onChange={(e) => setCategory(e.value)}
-              className="w-full"
-              placeholder="Selecciona una categoría"
-            />
-            {errors.category && <Message severity="error" text={errors.category} />}
-            <div className="mt-2">
+            <label className="text-sm font-medium text-[#94a3b8]">
+              Categoría
+            </label>
+            <div className="flex gap-2">
+              <Dropdown
+                value={category}
+                options={categoryOptions}
+                onChange={(e) => setCategory(e.value)}
+                className="w-full"
+                placeholder="Selecciona una categoría"
+              />
               <Button
-                label="Crear nueva categoría"
-                className="p-button-text p-button-sm"
+                type="button"
+                icon="pi pi-plus"
+                className="p-button-outlined p-button-sm flex-shrink-0"
+                severity="secondary"
+                tooltip="Crear categoría"
+                tooltipOptions={{ position: "top" }}
                 onClick={() => setShowNewCatDialog(true)}
-                style={secondaryButtonStyles}
               />
             </div>
+            {errors.category && (
+              <Message severity="error" text={errors.category} />
+            )}
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="font-medium">Fecha</label>
-            <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" dateFormat="dd/mm/yy" locale="es" />
+            <label className="text-sm font-medium text-[#94a3b8]">Fecha</label>
+            <Calendar
+              value={date}
+              onChange={(e) => setDate(e.value)}
+              showIcon
+              className="w-full"
+              dateFormat="dd/mm/yy"
+              locale="es"
+            />
             {errors.date && <Message severity="error" text={errors.date} />}
           </div>
 
           {category === "tarjeta-credito" && (
             <div className="flex flex-col gap-2">
-              <label className="font-medium">Cuotas</label>
-              <InputNumber value={installments} onValueChange={(e) => setInstallments(e.value)} min={0} className="w-full" />
-              {errors.installments && <Message severity="error" text={errors.installments} />}
+              <label className="text-sm font-medium text-[#94a3b8]">
+                Cuotas
+              </label>
+              <InputNumber
+                value={installments}
+                onValueChange={(e) => setInstallments(e.value)}
+                min={0}
+                className="w-full"
+              />
+              {errors.installments && (
+                <Message severity="error" text={errors.installments} />
+              )}
             </div>
           )}
 
           <div className="flex flex-col gap-2 md:col-span-2">
-            <label className="font-medium">Descripción</label>
+            <label className="text-sm font-medium text-[#94a3b8]">
+              Descripción
+            </label>
             <InputText
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full"
               placeholder="Ingrese una descripción"
             />
-            {errors.description && <Message severity="error" text={errors.description} />}
+            {errors.description && (
+              <Message severity="error" text={errors.description} />
+            )}
           </div>
         </div>
 
-        <Button type="submit" label="Agregar" className="mt-4 w-full" />
+        <div className="flex justify-end mt-5">
+          <Button
+            type="submit"
+            label="Agregar transacción"
+            icon="pi pi-plus"
+            className="p-button-sm"
+            severity="success"
+            disabled={!amount || !category || !description.trim() || !date}
+          />
+        </div>
       </form>
 
-      {/* Diálogo responsive para crear una nueva categoría */}
+      {/* Dialog nueva categoría */}
       <Dialog
-        header="Crear nueva categoría"
+        header={
+          <div className="flex items-center gap-2">
+            <i className="pi pi-tag text-purple-400"></i>
+            <span>Crear nueva categoría</span>
+          </div>
+        }
         visible={showNewCatDialog}
         onHide={() => setShowNewCatDialog(false)}
         style={{ width: "90vw", maxWidth: "400px" }}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              label="Cancelar"
+              icon="pi pi-times"
+              className="p-button-outlined p-button-sm"
+              severity="secondary"
+              onClick={() => setShowNewCatDialog(false)}
+            />
+            <Button
+              label="Guardar"
+              icon="pi pi-check"
+              className="p-button-sm"
+              severity="success"
+              onClick={handleSaveNewCategory}
+              disabled={!newCatName.trim()}
+            />
+          </div>
+        }
       >
-        <div className="flex flex-col gap-4">
-          <InputText value={newCatName} onChange={(e) => setNewCatName(e.target.value)} placeholder="Nombre de la categoría" />
-          <Button label="Guardar categoría" onClick={handleSaveNewCategory} />
+        <div className="flex flex-col gap-3 pt-2">
+          <label className="text-sm font-medium text-[#94a3b8]">
+            Nombre de la categoría
+          </label>
+          <InputText
+            value={newCatName}
+            onChange={(e) => setNewCatName(e.target.value)}
+            placeholder="Ej: Mascota, Gimnasio..."
+            className="w-full"
+            autoFocus
+          />
+          <p className="text-xs text-[#64748b]">
+            Se creará como categoría de{" "}
+            <span className="font-medium text-[#94a3b8]">
+              {type === "income" ? "ingreso" : "gasto"}
+            </span>
+          </p>
         </div>
       </Dialog>
     </>

@@ -1,4 +1,4 @@
-@import "primereact/resources/themes/lara-light-blue/theme.css";
+@import "primereact/resources/themes/lara-dark-purple/theme.css";
 @import "primereact/resources/primereact.min.css";
 @import "primeicons/primeicons.css";
 
@@ -7,13 +7,14 @@
 @tailwind utilities;
 
 :root {
-  --primary-color: #667eea;
-  --secondary-color: #764ba2;
-  --background-color: #f8fafc;
-  --text-color: #1a1a1a;
-  --text-color-secondary: #666666;
-  --accent-color: #6366f1;
-  --card-bg-color: #f1f5f9; /* Color de fondo para las cajas */
+  --primary-color: #a78bfa;
+  --secondary-color: #7c3aed;
+  --background-color: #1a1a2e;
+  --surface-color: #1e1e3a;
+  --surface-border: #2a2a4a;
+  --text-color: #e2e8f0;
+  --text-color-secondary: #94a3b8;
+  --accent-color: #818cf8;
 }
 
 body {
@@ -23,17 +24,17 @@ body {
   color: var(--text-color);
 }
 
-/* Caja con mayor contraste y fondo modificado */
+/* ===== Card override ===== */
 .card {
-  background: var(--card-bg-color);
+  background: var(--surface-color);
   padding: 2rem;
-  border-radius: 10px;
+  border-radius: 12px;
   margin-bottom: 1rem;
-  box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.2);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--surface-border);
+  box-shadow: none;
 }
 
-/* Mantienes el gradiente para la mayoría de botones PrimeReact */
+/* ===== Botón principal con gradiente ===== */
 .p-button {
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   border: none;
@@ -41,47 +42,179 @@ body {
 
 .p-button:hover {
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 70%);
+  opacity: 0.9;
 }
 
-/* Botón con fondo blanco y borde con gradiente */
-.p-button-white-gradient-border {
-  background-color: #fff !important; /* Fondo blanco */
-  background-image: none !important; /* Evita heredar gradiente */
-  border: 2px solid transparent !important; /* Borde transparente */
-  border-image: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) 1; /* Borde con gradiente */
-  color: var(--primary-color) !important; /* Color del ícono/texto */
+/* Respetar severity buttons — no aplicar gradiente */
+.p-button.p-button-success,
+.p-button.p-button-danger,
+.p-button.p-button-secondary,
+.p-button.p-button-outlined,
+.p-button.p-button-text {
+  background: revert-layer;
 }
 
-.p-button-white-gradient-border:hover {
-  background-color: #f8fafc !important; /* Fondo gris claro en hover */
-  /* Si quieres también cambiar el borde en hover:
-     border-image: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 70%) 1;
-  */
+.p-button.p-button-outlined:hover,
+.p-button.p-button-text:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-/* Estilos de enfoque para inputs, checkboxes, etc. */
+/* ===== Inputs — fondo oscuro consistente ===== */
+.p-inputtext,
+.p-dropdown,
+.p-calendar .p-inputtext,
+.p-inputnumber .p-inputtext,
+.p-password input {
+  background: var(--surface-color) !important;
+  border-color: var(--surface-border) !important;
+  color: var(--text-color) !important;
+}
+
 .p-inputtext:focus,
 .p-password input:focus {
   border-color: var(--accent-color) !important;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1) !important;
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.15) !important;
 }
 
+.p-inputtext::placeholder {
+  color: var(--text-color-secondary) !important;
+}
+
+/* ===== Dropdown panel ===== */
+.p-dropdown-panel {
+  background: var(--surface-color) !important;
+  border: 1px solid var(--surface-border) !important;
+}
+
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item {
+  color: var(--text-color) !important;
+}
+
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-highlight {
+  background: rgba(129, 140, 248, 0.15) !important;
+  color: var(--accent-color) !important;
+}
+
+/* ===== Calendar overlay ===== */
+.p-datepicker {
+  background: var(--surface-color) !important;
+  border: 1px solid var(--surface-border) !important;
+}
+
+.p-datepicker table td > span.p-highlight {
+  background: var(--accent-color) !important;
+}
+
+/* ===== DataTable ===== */
+.p-datatable .p-datatable-thead > tr > th {
+  background: var(--surface-color) !important;
+  border-color: var(--surface-border) !important;
+  color: var(--text-color-secondary) !important;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.p-datatable .p-datatable-tbody > tr {
+  background: transparent !important;
+  border-color: var(--surface-border) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* ===== Paginator ===== */
+.p-paginator {
+  background: transparent !important;
+  border: none !important;
+}
+
+.p-paginator .p-paginator-page.p-highlight {
+  background: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+}
+
+/* ===== Dialog ===== */
+.p-dialog {
+  background: var(--surface-color) !important;
+  border: 1px solid var(--surface-border) !important;
+}
+
+.p-dialog .p-dialog-header {
+  background: var(--surface-color) !important;
+  border-bottom: 1px solid var(--surface-border) !important;
+  color: var(--text-color) !important;
+}
+
+.p-dialog .p-dialog-footer {
+  background: var(--surface-color) !important;
+  border-top: 1px solid var(--surface-border) !important;
+}
+
+.p-dialog .p-dialog-content {
+  background: var(--surface-color) !important;
+  color: var(--text-color) !important;
+}
+
+/* ===== TabView ===== */
+.p-tabview .p-tabview-nav {
+  background: transparent !important;
+  border-color: var(--surface-border) !important;
+}
+
+.p-tabview .p-tabview-nav li .p-tabview-nav-link {
+  background: transparent !important;
+  color: var(--text-color-secondary) !important;
+  border-color: transparent !important;
+}
+
+.p-tabview .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+  color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+}
+
+.p-tabview .p-tabview-panels {
+  background: transparent !important;
+}
+
+/* ===== Toast ===== */
+.p-toast .p-toast-message {
+  border-radius: 10px;
+}
+
+/* ===== Checkbox ===== */
 .p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box.p-focus {
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.15);
 }
 
 .p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box.p-highlight {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
+  background: var(--accent-color);
+  border-color: var(--accent-color);
 }
 
-/* Estilos para enlaces */
+/* ===== Links ===== */
 a {
   color: var(--accent-color);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--secondary-color);
+  color: var(--primary-color);
+}
+
+/* ===== Message/Validation ===== */
+.p-message.p-message-error {
+  border-radius: 8px;
+  font-size: 0.8rem;
 }

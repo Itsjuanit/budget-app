@@ -5,29 +5,38 @@ import { Button } from "primereact/button";
 export const ConfirmDialog = ({ visible, onHide, onConfirm, message }) => {
   return (
     <Dialog
-      header="Confirmación"
+      header={
+        <div className="flex items-center gap-2">
+          <i className="pi pi-exclamation-triangle text-amber-400 text-xl"></i>
+          <span>Confirmación</span>
+        </div>
+      }
       visible={visible}
-      style={{ width: "350px" }}
+      style={{ width: "400px" }}
       onHide={onHide}
       breakpoints={{ "960px": "75vw", "640px": "90vw" }}
       footer={
         <div className="flex justify-end gap-2">
           <Button
-            label="No"
+            label="Cancelar"
             icon="pi pi-times"
-            className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
+            className="p-button-outlined p-button-sm"
+            severity="secondary"
             onClick={onHide}
           />
           <Button
-            label="Sí"
-            icon="pi pi-check"
-            className="p-button-rounded p-button-text p-button-sm p-button-white-gradient-border"
+            label="Eliminar"
+            icon="pi pi-trash"
+            className="p-button-sm"
+            severity="danger"
             onClick={onConfirm}
           />
         </div>
       }
     >
-      <p className="m-0">{message || "¿Estás seguro que deseas realizar esta acción?"}</p>
+      <p className="m-0 text-[#cbd5e1] leading-relaxed">
+        {message || "¿Estás seguro que deseas realizar esta acción?"}
+      </p>
     </Dialog>
   );
 };

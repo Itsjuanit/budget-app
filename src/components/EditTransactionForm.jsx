@@ -21,16 +21,16 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
   const [description, setDescription] = useState(transaction?.description || "");
   const [date, setDate] = useState(transaction ? new Date(transaction.date) : new Date());
   const [installments, setInstallments] = useState(transaction?.installments || 0);
-  const [installmentsRemaining, setInstallmentsRemaining] = useState(transaction?.installmentsRemaining || installments);
+  const [installmentsRemaining, setInstallmentsRemaining] = useState(
+    transaction?.installmentsRemaining || installments
+  );
   const [errors, setErrors] = useState({});
   const toast = useRef(null);
 
-  // Estado para las categorías personalizadas del usuario
   const [customCategories, setCustomCategories] = useState({ income: [], expense: [] });
   const auth = getAuth();
   const user = auth.currentUser;
 
-  // Cargar las categorías personalizadas del usuario
   useEffect(() => {
     const fetchCustomCategories = async () => {
       if (!user) return;
@@ -49,11 +49,9 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
         console.error("Error cargando categorías personalizadas:", error);
       }
     };
-
     fetchCustomCategories();
   }, [user]);
 
-  // Fusionar las categorías predefinidas con las personalizadas
   const mergedCategories = {
     income: [...defaultCategories.income, ...customCategories.income],
     expense: [...defaultCategories.expense, ...customCategories.expense],
@@ -61,7 +59,10 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
 
   const isSameMonthAndYear = (selectedDate) => {
     const currentDate = new Date();
-    return selectedDate.getFullYear() === currentDate.getFullYear() && selectedDate.getMonth() === currentDate.getMonth();
+    return (
+      selectedDate.getFullYear() === currentDate.getFullYear() &&
+      selectedDate.getMonth() === currentDate.getMonth()
+    );
   };
 
   const validateFields = () => {
@@ -70,8 +71,10 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
-    if (!isSameMonthAndYear(date)) newErrors.date = "Solo puedes editar transacciones del mes y año actual.";
-    if (category === "tarjeta-credito" && installments < 0) newErrors.installments = "Las cuotas no pueden ser negativas.";
+    if (!isSameMonthAndYear(date))
+      newErrors.date = "Solo puedes editar transacciones del mes y año actual.";
+    if (category === "tarjeta-credito" && installments < 0)
+      newErrors.installments = "Las cuotas no pueden ser negativas.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -95,7 +98,6 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
 
     try {
       await updateTransaction(updatedTransaction);
-
       toast.current.show({
         severity: "success",
         summary: "Éxito",
@@ -115,12 +117,12 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <Toast ref={toast} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
-          <label className="font-medium">Tipo</label>
+          <label className="text-sm font-medium text-[#94a3b8]">Tipo</label>
           <Dropdown
             value={type}
             options={[
@@ -136,7 +138,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="font-medium">Monto</label>
+          <label className="text-sm font-medium text-[#94a3b8]">Monto</label>
           <InputNumber
             value={amount}
             onValueChange={(e) => setAmount(e.value)}
@@ -149,10 +151,13 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="font-medium">Categoría</label>
+          <label className="text-sm font-medium text-[#94a3b8]">Categoría</label>
           <Dropdown
             value={category}
-            options={mergedCategories[type]?.map((c) => ({ label: c.label, value: c.value }))}
+            options={mergedCategories[type]?.map((c) => ({
+              label: c.label,
+              value: c.value,
+            }))}
             onChange={(e) => setCategory(e.value)}
             className="w-full"
             placeholder="Selecciona una categoría"
@@ -161,13 +166,20 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="font-medium">Fecha</label>
-          <Calendar value={date} onChange={(e) => setDate(e.value)} showIcon className="w-full" dateFormat="dd/mm/yy" locale="es" />
+          <label className="text-sm font-medium text-[#94a3b8]">Fecha</label>
+          <Calendar
+            value={date}
+            onChange={(e) => setDate(e.value)}
+            showIcon
+            className="w-full"
+            dateFormat="dd/mm/yy"
+            locale="es"
+          />
           {errors.date && <Message severity="error" text={errors.date} />}
         </div>
 
         <div className="flex flex-col gap-2 sm:col-span-2">
-          <label className="font-medium">Descripción</label>
+          <label className="text-sm font-medium text-[#94a3b8]">Descripción</label>
           <InputText
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -179,7 +191,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
 
         {category === "tarjeta-credito" && (
           <div className="flex flex-col gap-2">
-            <label className="font-medium">Cuotas</label>
+            <label className="text-sm font-medium text-[#94a3b8]">Cuotas</label>
             <InputNumber
               value={installments}
               onValueChange={(e) => {
@@ -194,12 +206,24 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
         )}
       </div>
 
-      <Button
-        type="submit"
-        label="Guardar Cambios"
-        className="mt-4 w-full sm:w-auto"
-        disabled={!amount || !category || !description.trim() || !date}
-      />
+      <div className="flex justify-end gap-2 pt-2">
+        <Button
+          type="button"
+          label="Cancelar"
+          icon="pi pi-times"
+          className="p-button-outlined p-button-sm"
+          severity="secondary"
+          onClick={onClose}
+        />
+        <Button
+          type="submit"
+          label="Guardar cambios"
+          icon="pi pi-check"
+          className="p-button-sm"
+          severity="success"
+          disabled={!amount || !category || !description.trim() || !date}
+        />
+      </div>
     </form>
   );
 };
