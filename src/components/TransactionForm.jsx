@@ -11,6 +11,8 @@ import { db } from "@/firebaseConfig";
 import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { categories as defaultCategories } from "../utils/categories";
+import { fetchDolarRate, convertUsdToArs, dolarTypeOptions } from "../utils/dolarService";
+import { ToggleButton } from "primereact/togglebutton";
 
 export const TransactionForm = () => {
   const [type, setType] = useState("expense");
@@ -27,6 +29,11 @@ export const TransactionForm = () => {
   });
   const [showNewCatDialog, setShowNewCatDialog] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+  const [usdMode, setUsdMode] = useState(false);
+  const [usdAmount, setUsdAmount] = useState(null);
+  const [dolarType, setDolarType] = useState("cripto");
+  const [dolarRate, setDolarRate] = useState(null);
+  const [loadingRate, setLoadingRate] = useState(false);
   const toast = useRef(null);
   const auth = getAuth();
   const user = auth.currentUser;
@@ -53,6 +60,35 @@ export const TransactionForm = () => {
     };
     fetchCustomCategories();
   }, [user]);
+
+  // Cargar cotización del dólar
+  useEffect(() => {
+    if (!usdMode) return;
+
+    const loadRate = async () => {
+      setLoadingRate(true);
+      try {
+        const rate = await fetchDolarRate(dolarType);
+        setDolarRate(rate);
+        // Recalcular si ya hay un monto en USD
+        if (usdAmount) {
+          setAmount(convertUsdToArs(usdAmount, rate.venta));
+        }
+      } catch (error) {
+        console.error("Error cargando cotización:", error);
+        toast.current?.show({
+          severity: "error",
+          summary: "Error",
+          detail: "No se pudo obtener la cotización del dólar.",
+          life: 3000,
+        });
+      } finally {
+        setLoadingRate(false);
+      }
+    };
+
+    loadRate();
+  }, [usdMode, dolarType]);
 
   const mergedCategories = {
     income: [...defaultCategories.income, ...customCategories.income],
@@ -118,6 +154,9 @@ export const TransactionForm = () => {
       setDate(new Date());
       setInstallments(0);
       setErrors({});
+      setUsdMode(false);
+      setUsdAmount(null);
+      setDolarRate(null);
       toast.current.show({
         severity: "success",
         summary: "Éxito",
@@ -176,6 +215,15 @@ export const TransactionForm = () => {
     value: c.value,
   }));
 
+  const handleUsdChange = (value) => {
+    setUsdAmount(value);
+    if (value && dolarRate) {
+      setAmount(convertUsdToArs(value, dolarRate.venta));
+    } else {
+      setAmount(null);
+    }
+  };
+
   return (
     <>
       <form
@@ -197,6 +245,11 @@ export const TransactionForm = () => {
               onChange={(e) => {
                 setType(e.value);
                 setCategory("");
+                if (e.value !== type) {
+                  setUsdMode(false);
+                  setUsdAmount(null);
+                  setDolarRate(null);
+                }
               }}
               className="w-full"
             />
@@ -206,12 +259,80 @@ export const TransactionForm = () => {
             <label className="text-sm font-medium text-[#94a3b8]">Monto</label>
             <InputNumber
               value={amount}
-              onValueChange={(e) => setAmount(e.value)}
+              onValueChange={(e) => {
+                setAmount(e.value);
+                if (usdMode) {
+                  setUsdMode(false);
+                  setUsdAmount(null);
+                }
+              }}
               mode="currency"
               currency="ARS"
               locale="es-AR"
               className="w-full"
             />
+            {!usdMode && (
+              <button
+                type="button"
+                className="text-xs text-purple-400 hover:text-purple-300 text-left transition-colors"
+                onClick={() => setUsdMode(true)}
+              >
+                <i className="pi pi-dollar mr-1" style={{ fontSize: "0.65rem" }} />
+                Convertir desde USD
+              </button>
+            )}
+            {usdMode && (
+              <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-purple-400">Conversión USD → ARS</span>
+                  <button
+                    type="button"
+                    className="text-[#64748b] hover:text-[#94a3b8] transition-colors"
+                    onClick={() => {
+                      setUsdMode(false);
+                      setUsdAmount(null);
+                      setDolarRate(null);
+                    }}
+                  >
+                    <i className="pi pi-times" style={{ fontSize: "0.7rem" }} />
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <InputNumber
+                    value={usdAmount}
+                    onValueChange={(e) => handleUsdChange(e.value)}
+                    mode="currency"
+                    currency="USD"
+                    locale="en-US"
+                    className="w-full"
+                    placeholder="USD"
+                  />
+                  <Dropdown
+                    value={dolarType}
+                    options={dolarTypeOptions}
+                    onChange={(e) => setDolarType(e.value)}
+                    className="w-36 flex-shrink-0"
+                  />
+                </div>
+                {dolarRate && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#64748b]">
+                      {dolarRate.nombre}: ${dolarRate.venta.toLocaleString("es-AR")}
+                    </span>
+                    {usdAmount > 0 && (
+                      <span className="font-bold text-emerald-400">
+                        ={" "}
+                        {new Intl.NumberFormat("es-AR", {
+                          style: "currency",
+                          currency: "ARS",
+                        }).format(convertUsdToArs(usdAmount, dolarRate.venta))}
+                      </span>
+                    )}
+                    {loadingRate && <i className="pi pi-spin pi-spinner text-[#94a3b8]" />}
+                  </div>
+                )}
+              </div>
+            )}
             {errors.amount && <Message severity="error" text={errors.amount} />}
           </div>
 
