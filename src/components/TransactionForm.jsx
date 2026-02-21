@@ -20,7 +20,7 @@ export const TransactionForm = () => {
   const [date, setDate] = useState(new Date());
   const [installments, setInstallments] = useState(0);
   const [errors, setErrors] = useState({});
-  const [customCategories, setCustomCategories] = useState({ income: [], expense: [] });
+  const [customCategories, setCustomCategories] = useState({ income: [], expense: [], savings: [] });
   const [showNewCatDialog, setShowNewCatDialog] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const toast = useRef(null);
@@ -38,14 +38,17 @@ export const TransactionForm = () => {
         const querySnapshot = await getDocs(q);
         const income = [];
         const expense = [];
+        const savings = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           if (data.type === "income")
             income.push({ label: data.label, value: data.value });
           else if (data.type === "expense")
             expense.push({ label: data.label, value: data.value });
+          else if (data.type === "savings")
+            savings.push({ label: data.label, value: data.value });
         });
-        setCustomCategories({ income, expense });
+        setCustomCategories({ income, expense, savings });
       } catch (error) {
         console.error("Error cargando categorías personalizadas:", error);
       }
@@ -56,6 +59,7 @@ export const TransactionForm = () => {
   const mergedCategories = {
     income: [...defaultCategories.income, ...customCategories.income],
     expense: [...defaultCategories.expense, ...customCategories.expense],
+    savings: [...(defaultCategories.savings || []), ...customCategories.savings],
   };
 
   const isSameMonthAndYear = (selectedDate) => {
@@ -195,6 +199,7 @@ export const TransactionForm = () => {
               options={[
                 { label: "Ingreso", value: "income" },
                 { label: "Gasto", value: "expense" },
+                { label: "Ahorro", value: "savings" },
               ]}
               onChange={(e) => {
                 setType(e.value);
@@ -347,7 +352,7 @@ export const TransactionForm = () => {
           <p className="text-xs text-[#64748b]">
             Se creará como categoría de{" "}
             <span className="font-medium text-[#94a3b8]">
-              {type === "income" ? "ingreso" : "gasto"}
+              {type === "income" ? "ingreso" : type === "savings" ? "ahorro" : "gasto"}
             </span>
           </p>
         </div>

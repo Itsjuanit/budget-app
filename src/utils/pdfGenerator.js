@@ -99,8 +99,9 @@ const drawHeader = (doc, selectedMonth) => {
  */
 const drawSummaryCards = (doc, data, startY) => {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const cardWidth = (pageWidth - 42) / 3;
+  const cardWidth = (pageWidth - 49) / 4;
   const cardHeight = 28;
+  const available = data.income - data.expenses - data.savings;
   const cards = [
     {
       label: "Ingresos",
@@ -113,34 +114,35 @@ const drawSummaryCards = (doc, data, startY) => {
       color: COLORS.red,
     },
     {
-      label: "Ahorro neto",
+      label: "Ahorros",
       value: formatCurrency(data.savings),
-      color: data.savings >= 0 ? COLORS.green : COLORS.red,
+      color: [96, 165, 250], // #60a5fa — blue
+    },
+    {
+      label: "Disponible",
+      value: formatCurrency(available),
+      color: available >= 0 ? COLORS.primary : COLORS.red,
     },
   ];
 
   cards.forEach((card, i) => {
     const x = 14 + i * (cardWidth + 7);
 
-    // Fondo card
     doc.setFillColor(...COLORS.surface);
     doc.roundedRect(x, startY, cardWidth, cardHeight, 3, 3, "F");
 
-    // Línea superior de color
     doc.setFillColor(...card.color);
     doc.rect(x, startY, cardWidth, 2, "F");
 
-    // Label
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COLORS.textSecondary);
-    doc.text(card.label, x + 6, startY + 11);
+    doc.text(card.label, x + 4, startY + 11);
 
-    // Valor
-    doc.setFontSize(13);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...card.color);
-    doc.text(card.value, x + 6, startY + 22);
+    doc.text(card.value, x + 4, startY + 22);
   });
 
   return startY + cardHeight + 10;
@@ -156,7 +158,7 @@ const drawTransactionsTable = (doc, transactions, startY) => {
 
   const tableRows = sortedTransactions.map((t) => [
     format(new Date(t.date), "dd/MM/yyyy"),
-    t.type === "income" ? "INGRESO" : "GASTO",
+    t.type === "income" ? "INGRESO" : t.type === "savings" ? "AHORRO" : "GASTO",
     getCategoryLabel(t.category),
     t.description || "—",
     formatCurrency(t.amount),
@@ -204,14 +206,18 @@ const drawTransactionsTable = (doc, transactions, startY) => {
       if (data.section === "body" && data.column.index === 1) {
         const value = data.cell.raw;
         data.cell.styles.textColor =
-          value === "INGRESO" ? COLORS.green : COLORS.red;
+         value === "INGRESO" ? COLORS.green
+         : value === "AHORRO" ? [96, 165, 250]
+         : COLORS.red;
         data.cell.styles.fontStyle = "bold";
       }
       // Colorear monto
       if (data.section === "body" && data.column.index === 4) {
         const type = data.row.raw[1];
-        data.cell.styles.textColor =
-          type === "INGRESO" ? COLORS.green : COLORS.red;
+       data.cell.styles.textColor =
+         type === "INGRESO" ? COLORS.green
+         : type === "AHORRO" ? [96, 165, 250]
+         : COLORS.red;
         data.cell.styles.fontStyle = "bold";
       }
     },

@@ -17,8 +17,10 @@ import { categories } from "../utils/categories";
 import {
   Wallet,
   TrendingDown,
-  PercentCircle,
+  PiggyBank,
+  Landmark,
 } from "lucide-react";
+import { ProgressBar } from "primereact/progressbar";
 
 export const MonthlyReports = () => {
   const {
@@ -111,19 +113,14 @@ export const MonthlyReports = () => {
         (acc, t) => (t.type === "expense" ? acc + t.amount : acc),
         0
       ),
-      savings:
-        sanitizedTransactions.reduce(
-          (acc, t) => (t.type === "income" ? acc + t.amount : acc),
-          0
-        ) -
-        sanitizedTransactions.reduce(
-          (acc, t) => (t.type === "expense" ? acc + t.amount : acc),
-          0
-        ),
+       savings: sanitizedTransactions.reduce(
+         (acc, t) => (t.type === "savings" ? acc + t.amount : acc),
+         0
+       ),
     };
 
     try {
-      generatePDF(pdfContent, selectedMonth, "UsuarioID");
+      generatePDF(pdfContent, selectedMonth);
       toast.current.show({
         severity: "success",
         summary: "Éxito",
@@ -167,9 +164,17 @@ export const MonthlyReports = () => {
   );
   const percentageSpent =
     totalIncome > 0 ? ((totalExpenses / totalIncome) * 100).toFixed(1) : 0;
+  
+  const totalSavings = transactions.reduce(
+   (acc, t) => (t.type === "savings" ? acc + t.amount : acc),
+   0
+  );
+  const totalAvailable = totalIncome - totalExpenses - totalSavings;
+  const savingsPercentage =
+   totalIncome > 0 ? ((totalSavings / totalIncome) * 100).toFixed(1) : 0;
 
   const getCategoryLabel = (value) => {
-    const allCategories = [...categories.income, ...categories.expense];
+    const allCategories = [...categories.income, ...categories.savings, ...categories.expense];
     return allCategories.find((c) => c.value === value)?.label || value;
   };
 
@@ -191,12 +196,20 @@ export const MonthlyReports = () => {
       bgGlow: "bg-red-500/5",
     },
     {
-      icon: <PercentCircle className="w-8 h-8" />,
-      label: "% Gastado",
-      value: `${percentageSpent}%`,
-      color: "text-purple-400",
-      borderColor: "border-purple-500/30",
-      bgGlow: "bg-purple-500/5",
+      icon: <PiggyBank className="w-8 h-8" />,
+      label: "Total ahorrado",
+      value: formatCurrency(totalSavings),
+      color: "text-blue-400",
+      borderColor: "border-blue-500/30",
+      bgGlow: "bg-blue-500/5",
+    },
+    {
+      icon: <Landmark className="w-8 h-8" />,
+      label: "Disponible",
+      value: formatCurrency(totalAvailable),
+      color: totalAvailable >= 0 ? "text-purple-400" : "text-red-400",
+      borderColor: totalAvailable >= 0 ? "border-purple-500/30" : "border-red-500/30",
+      bgGlow: totalAvailable >= 0 ? "bg-purple-500/5" : "bg-red-500/5",
     },
   ];
 
@@ -226,7 +239,7 @@ export const MonthlyReports = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {summaryCards.map((card, index) => (
           <div
             key={index}
@@ -278,8 +291,8 @@ export const MonthlyReports = () => {
               header="Tipo"
               body={(row) => (
                 <Tag
-                  value={row.type === "income" ? "Ingreso" : "Gasto"}
-                  severity={row.type === "income" ? "success" : "danger"}
+                  value={row.type === "income" ? "Ingreso" : row.type === "savings" ? "Ahorro" : "Gasto"}
+                  severity={row.type === "income" ? "success" : row.type === "savings" ? "info" : "danger"}
                   className="text-xs"
                 />
               )}
@@ -311,10 +324,14 @@ export const MonthlyReports = () => {
               body={(row) => (
                 <span
                   className={`text-sm font-bold ${
-                    row.type === "income" ? "text-emerald-400" : "text-red-400"
+                    row.type === "income"
+                     ? "text-emerald-400"
+                     : row.type === "savings"
+                     ? "text-blue-400"
+                     : "text-red-400"
                   }`}
                 >
-                  {row.type === "income" ? "+" : "-"}
+                   {row.type === "income" ? "+" : row.type === "expense" ? "-" : ""}
                   {formatCurrency(row.amount)}
                 </span>
               )}

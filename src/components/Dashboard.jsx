@@ -8,8 +8,9 @@ import { Paginator } from "primereact/paginator";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Tag } from "primereact/tag";
+import { ProgressBar } from "primereact/progressbar";
 import { formatCurrency } from "../utils/format";
-import { Wallet, TrendingUp, PiggyBank } from "lucide-react";
+import { Wallet, TrendingUp, PiggyBank, Landmark } from "lucide-react";
 import { db } from "@/firebaseConfig";
 import {
   collection,
@@ -29,8 +30,10 @@ export const Dashboard = () => {
   const [transactions, setTransactions] = useState([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState(0);
   const [monthlyIncome, setMonthlyIncome] = useState(0);
-  const [monthlySavings, setMonthlySavings] = useState(0);
+  const [monthlySavingsDeposits, setMonthlySavingsDeposits] = useState(0);
+  const [monthlyAvailable, setMonthlyAvailable] = useState(0);
   const [expensesByCategory, setExpensesByCategory] = useState([]);
+  const [savingsByCategory, setSavingsByCategory] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -76,39 +79,47 @@ export const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const expenseTransactions = transactions.filter(
-      (t) => t.type === "expense"
-    );
+    // Gastos
+    const expenseTransactions = transactions.filter((t) => t.type === "expense");
+    const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+    setMonthlyExpenses(totalExpenses);
 
     const expensesGroupedByCategory = categories.expense
       .map((category) => {
         const total = expenseTransactions
           .filter((t) => t.category === category.value)
           .reduce((sum, t) => sum + t.amount, 0);
-        return {
-          category: category.label,
-          amount: total,
-          color: category.color,
-        };
+        return { category: category.label, amount: total, color: category.color };
       })
-      .filter((category) => category.amount > 0);
-
+      .filter((c) => c.amount > 0);
     setExpensesByCategory(expensesGroupedByCategory);
 
-    const totalExpenses = expenseTransactions.reduce(
-      (sum, t) => sum + t.amount,
-      0
-    );
-    setMonthlyExpenses(totalExpenses);
-
+    // Ingresos
     const totalIncome = transactions
       .filter((t) => t.type === "income")
       .reduce((sum, t) => sum + t.amount, 0);
     setMonthlyIncome(totalIncome);
-    setMonthlySavings(totalIncome - totalExpenses);
+
+    // Ahorros depositados
+    const savingsTransactions = transactions.filter((t) => t.type === "savings");
+    const totalSavings = savingsTransactions.reduce((sum, t) => sum + t.amount, 0);
+    setMonthlySavingsDeposits(totalSavings);
+
+    const savingsGrouped = categories.savings
+      .map((category) => {
+        const total = savingsTransactions
+          .filter((t) => t.category === category.value)
+          .reduce((sum, t) => sum + t.amount, 0);
+        return { category: category.label, amount: total, color: category.color };
+      })
+      .filter((c) => c.amount > 0);
+    setSavingsByCategory(savingsGrouped);
+
+    // Disponible = ingresos - gastos - ahorros
+    setMonthlyAvailable(totalIncome - totalExpenses - totalSavings);
   }, [transactions]);
 
-  // --- Chart config ---
+  // --- Chart config (solo gastos) ---
   const chartData = {
     labels: expensesByCategory.map((item) => item.category),
     datasets: [
@@ -195,16 +206,31 @@ export const Dashboard = () => {
     setRows(event.rows);
   };
 
-  // --- Helpers de render ---
+  // --- Helpers ---
   const savingsPercentage =
-    monthlyIncome > 0 ? Math.round((1 - monthlyExpenses / monthlyIncome) * 100) : 0;
+    monthlyIncome > 0
+      ? Math.round((monthlySavingsDeposits / monthlyIncome) * 100)
+      : 0;
 
   const getCategoryLabel = (value) => {
-    const allCategories = [...categories.income, ...categories.expense];
+    const allCategories = [
+      ...categories.income,
+      ...categories.savings,
+      ...categories.expense,
+    ];
     return allCategories.find((c) => c.value === value)?.label || value;
   };
 
-  // --- Summary cards config ---
+  const getTypeConfig = (type) => {
+    const config = {
+      income: { label: "Ingreso", severity: "success", sign: "+" },
+      savings: { label: "Ahorro", severity: "info", sign: "" },
+      expense: { label: "Gasto", severity: "danger", sign: "-" },
+    };
+    return config[type] || config.expense;
+  };
+
+  // --- Summary cards ---
   const summaryCards = [
     {
       icon: <Wallet className="w-8 h-8" />,
@@ -216,18 +242,29 @@ export const Dashboard = () => {
     },
     {
       icon: <PiggyBank className="w-8 h-8" />,
-      label: "Ahorro mensual",
-      value: formatCurrency(monthlySavings),
-      color: monthlySavings >= 0 ? "text-emerald-400" : "text-red-400",
+      label: "Ahorro depositado",
+      value: formatCurrency(monthlySavingsDeposits),
+      color: "text-blue-400",
+      borderColor: "border-blue-500/30",
+      bgGlow: "bg-blue-500/5",
+    },
+    {
+      icon: <Landmark className="w-8 h-8" />,
+      label: "Disponible",
+      value: formatCurrency(monthlyAvailable),
+      color: monthlyAvailable >= 0 ? "text-emerald-400" : "text-red-400",
       borderColor:
-        monthlySavings >= 0 ? "border-emerald-500/30" : "border-red-500/30",
-      bgGlow: monthlySavings >= 0 ? "bg-emerald-500/5" : "bg-red-500/5",
+        monthlyAvailable >= 0
+          ? "border-emerald-500/30"
+          : "border-red-500/30",
+      bgGlow:
+        monthlyAvailable >= 0 ? "bg-emerald-500/5" : "bg-red-500/5",
     },
     {
       icon: <TrendingUp className="w-8 h-8" />,
-      label: "Porcentaje de ahorro",
+      label: "% destinado a ahorro",
       value: `${savingsPercentage}%`,
-      color: savingsPercentage >= 0 ? "text-purple-400" : "text-red-400",
+      color: "text-purple-400",
       borderColor: "border-purple-500/30",
       bgGlow: "bg-purple-500/5",
     },
@@ -239,51 +276,63 @@ export const Dashboard = () => {
 
     return (
       <div className="flex flex-col gap-3">
-        {currentTransactions.map((transaction) => (
-          <div
-            key={transaction.id}
-            className="rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] p-4"
-          >
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex-1">
-                <p className="text-white font-medium text-sm">
-                  {transaction.description}
-                </p>
-                <p className="text-[#94a3b8] text-xs mt-1">
-                  {format(new Date(transaction.date), "dd/MM/yyyy")} ·{" "}
-                  {getCategoryLabel(transaction.category)}
-                </p>
+        {currentTransactions.map((transaction) => {
+          const typeConfig = getTypeConfig(transaction.type);
+          return (
+            <div
+              key={transaction.id}
+              className="rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] p-4"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-white font-medium text-sm">
+                      {transaction.description}
+                    </p>
+                    <Tag
+                      value={typeConfig.label}
+                      severity={typeConfig.severity}
+                      className="text-xs"
+                    />
+                  </div>
+                  <p className="text-[#94a3b8] text-xs">
+                    {format(new Date(transaction.date), "dd/MM/yyyy")} ·{" "}
+                    {getCategoryLabel(transaction.category)}
+                  </p>
+                </div>
+                <span
+                  className={`text-sm font-bold ${
+                    transaction.type === "income"
+                      ? "text-emerald-400"
+                      : transaction.type === "savings"
+                      ? "text-blue-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {typeConfig.sign}
+                  {formatCurrency(transaction.amount)}
+                </span>
               </div>
-              <span
-                className={`text-sm font-bold ${
-                  transaction.type === "income"
-                    ? "text-emerald-400"
-                    : "text-red-400"
-                }`}
-              >
-                {transaction.type === "income" ? "+" : "-"}
-                {formatCurrency(transaction.amount)}
-              </span>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  icon="pi pi-pencil"
+                  className="p-button-rounded p-button-text p-button-sm"
+                  tooltip="Editar"
+                  tooltipOptions={{ position: "top" }}
+                  onClick={() => handleEdit(transaction)}
+                />
+                <Button
+                  icon="pi pi-trash"
+                  className="p-button-rounded p-button-text p-button-sm"
+                  tooltip="Eliminar"
+                  tooltipOptions={{ position: "top" }}
+                  onClick={() => confirmDelete(transaction)}
+                  severity="danger"
+                />
+              </div>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button
-                icon="pi pi-pencil"
-                className="p-button-rounded p-button-text p-button-sm"
-                tooltip="Editar"
-                tooltipOptions={{ position: "top" }}
-                onClick={() => handleEdit(transaction)}
-              />
-              <Button
-                icon="pi pi-trash"
-                className="p-button-rounded p-button-text p-button-sm"
-                tooltip="Eliminar"
-                tooltipOptions={{ position: "top" }}
-                onClick={() => confirmDelete(transaction)}
-                severity="danger"
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
         <Paginator
           first={first}
           rows={rows}
@@ -340,28 +389,38 @@ export const Dashboard = () => {
       <Column
         field="type"
         header="Tipo"
-        body={(row) => (
-          <Tag
-            value={row.type === "income" ? "Ingreso" : "Gasto"}
-            severity={row.type === "income" ? "success" : "danger"}
-            className="text-xs"
-          />
-        )}
+        body={(row) => {
+          const typeConfig = getTypeConfig(row.type);
+          return (
+            <Tag
+              value={typeConfig.label}
+              severity={typeConfig.severity}
+              className="text-xs"
+            />
+          );
+        }}
         sortable
       />
       <Column
         field="amount"
         header="Monto"
-        body={(row) => (
-          <span
-            className={`text-sm font-bold ${
-              row.type === "income" ? "text-emerald-400" : "text-red-400"
-            }`}
-          >
-            {row.type === "income" ? "+" : "-"}
-            {formatCurrency(row.amount)}
-          </span>
-        )}
+        body={(row) => {
+          const typeConfig = getTypeConfig(row.type);
+          return (
+            <span
+              className={`text-sm font-bold ${
+                row.type === "income"
+                  ? "text-emerald-400"
+                  : row.type === "savings"
+                  ? "text-blue-400"
+                  : "text-red-400"
+              }`}
+            >
+              {typeConfig.sign}
+              {formatCurrency(row.amount)}
+            </span>
+          );
+        }}
         sortable
       />
       <Column
@@ -398,7 +457,7 @@ export const Dashboard = () => {
       </h1>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {summaryCards.map((card, index) => (
           <div
             key={index}
@@ -416,6 +475,56 @@ export const Dashboard = () => {
           </div>
         ))}
       </div>
+
+      {/* Sección de ahorro */}
+      {monthlySavingsDeposits > 0 && (
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-5 mb-6">
+          <h3 className="text-lg font-semibold mb-4 text-white">
+            Detalle de ahorro
+          </h3>
+
+          {/* Barra de progreso */}
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-[#94a3b8]">
+                {savingsPercentage}% del ingreso destinado a ahorro
+              </span>
+              <span className="text-blue-400 font-medium">
+                {formatCurrency(monthlySavingsDeposits)} / {formatCurrency(monthlyIncome)}
+              </span>
+            </div>
+            <ProgressBar
+              value={Math.min(savingsPercentage, 100)}
+              showValue={false}
+              style={{ height: "8px" }}
+              color="#60a5fa"
+            />
+          </div>
+
+          {/* Desglose por categoría de ahorro */}
+          {savingsByCategory.length > 0 && (
+            <div className="flex flex-wrap gap-4">
+              {savingsByCategory.map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3"
+                >
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <div>
+                    <p className="text-xs text-[#94a3b8]">{item.category}</p>
+                    <p className="text-sm font-bold text-blue-400">
+                      {formatCurrency(item.amount)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Chart + Table */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -6,9 +6,12 @@ export const categories = {
     { label: "Otros ingresos", value: "otros-ingresos" },
     { label: "Salario", value: "salario" },
   ]),
+  savings: assignColorsToCategories([
+    { label: "Ahorros", value: "ahorros" },
+    { label: "Inversiones", value: "inversiones" },
+  ]),
   expense: assignColorsToCategories([
     { label: "Actividad física", value: "actividad-fisica" },
-    { label: "Ahorros", value: "ahorros" },
     { label: "Alquiler", value: "alquiler" },
     { label: "Celulares", value: "celulares" },
     { label: "Círculo", value: "circulo" },
@@ -20,7 +23,6 @@ export const categories = {
     { label: "Educación", value: "educacion" },
     { label: "Hobbies", value: "hobbies" },
     { label: "Internet", value: "internet" },
-    { label: "Inversiones", value: "inversiones" },
     { label: "Netflix", value: "netflix" },
     { label: "Otros gastos", value: "otros-gastos" },
     { label: "Préstamos", value: "prestamos" },

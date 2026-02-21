@@ -128,6 +128,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
             options={[
               { label: "Ingreso", value: "income" },
               { label: "Gasto", value: "expense" },
+              { label: "Ahorro", value: "savings" },
             ]}
             onChange={(e) => {
               setType(e.value);
