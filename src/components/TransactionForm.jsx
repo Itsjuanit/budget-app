@@ -276,7 +276,7 @@ export const TransactionForm = () => {
           </div>
         </div>
 
-        <div className="flex justify-end mt-5">
+        <div className="flex justify-end mt-5 [&>button]:w-full [&>button]:sm:w-auto">
           <Button
             type="submit"
             label="Agregar transacción"

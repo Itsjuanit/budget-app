@@ -240,3 +240,15 @@ a:hover {
 .p-dialog-content *::-webkit-scrollbar-thumb:hover {
   background: #3a3a5a;
 }
+
+/* Fix InputNumber currency mode */
+.p-inputnumber .p-inputtext {
+  background: #1e1e3a !important;
+  border: 1px solid #2a2a4a !important;
+  color: #e2e8f0 !important;
+  width: 100% !important;
+}
+
+.p-inputnumber {
+  width: 100%;
+}
