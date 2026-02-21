@@ -44,9 +44,8 @@ export const Signup = () => {
             </div>
             <h1 className="text-3xl font-bold text-white mb-3">PAGATODO</h1>
             <p className="text-[#94a3b8] text-sm leading-relaxed">
-              Da el primer paso hacia una vida financiera en orden.
-              Gestioná tus gastos y planificá tus ahorros de forma
-              sencilla, segura y efectiva.
+              Da el primer paso hacia una vida financiera en orden. Gestioná tus gastos y planificá
+              tus ahorros de forma sencilla, segura y efectiva.
             </p>
           </div>
 

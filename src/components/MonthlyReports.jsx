@@ -14,12 +14,7 @@ import { useTransactions } from "../context/TransactionsProvider";
 import { generatePDF } from "../utils/pdfGenerator";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { categories } from "../utils/categories";
-import {
-  Wallet,
-  TrendingDown,
-  PiggyBank,
-  Landmark,
-} from "lucide-react";
+import { Wallet, TrendingDown, PiggyBank, Landmark } from "lucide-react";
 import { ProgressBar } from "primereact/progressbar";
 
 export const MonthlyReports = () => {
@@ -113,10 +108,10 @@ export const MonthlyReports = () => {
         (acc, t) => (t.type === "expense" ? acc + t.amount : acc),
         0
       ),
-       savings: sanitizedTransactions.reduce(
-         (acc, t) => (t.type === "savings" ? acc + t.amount : acc),
-         0
-       ),
+      savings: sanitizedTransactions.reduce(
+        (acc, t) => (t.type === "savings" ? acc + t.amount : acc),
+        0
+      ),
     };
 
     try {
@@ -149,7 +144,7 @@ export const MonthlyReports = () => {
       const [year, month] = monthYear.split("-");
       return {
         value: monthYear,
-         label: format(new Date(parseInt(year), parseInt(month) - 1), "MMMM yyyy", { locale: es }),
+        label: format(new Date(parseInt(year), parseInt(month) - 1), "MMMM yyyy", { locale: es }),
       };
     })
     .filter(Boolean);
@@ -162,16 +157,14 @@ export const MonthlyReports = () => {
     (acc, t) => (t.type === "expense" ? acc + t.amount : acc),
     0
   );
-  const percentageSpent =
-    totalIncome > 0 ? ((totalExpenses / totalIncome) * 100).toFixed(1) : 0;
-  
+  const percentageSpent = totalIncome > 0 ? ((totalExpenses / totalIncome) * 100).toFixed(1) : 0;
+
   const totalSavings = transactions.reduce(
-   (acc, t) => (t.type === "savings" ? acc + t.amount : acc),
-   0
+    (acc, t) => (t.type === "savings" ? acc + t.amount : acc),
+    0
   );
   const totalAvailable = totalIncome - totalExpenses - totalSavings;
-  const savingsPercentage =
-   totalIncome > 0 ? ((totalSavings / totalIncome) * 100).toFixed(1) : 0;
+  const savingsPercentage = totalIncome > 0 ? ((totalSavings / totalIncome) * 100).toFixed(1) : 0;
 
   const getCategoryLabel = (value) => {
     const allCategories = [...categories.income, ...categories.savings, ...categories.expense];
@@ -241,17 +234,12 @@ export const MonthlyReports = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {summaryCards.map((card, index) => (
-          <div
-            key={index}
-            className={`rounded-xl border ${card.borderColor} ${card.bgGlow} p-5`}
-          >
+          <div key={index} className={`rounded-xl border ${card.borderColor} ${card.bgGlow} p-5`}>
             <div className="flex items-center gap-4">
               <div className={`${card.color} opacity-80`}>{card.icon}</div>
               <div>
                 <p className="text-[#94a3b8] text-sm">{card.label}</p>
-                <p className={`text-2xl font-bold ${card.color} mt-1`}>
-                  {card.value}
-                </p>
+                <p className={`text-2xl font-bold ${card.color} mt-1`}>{card.value}</p>
               </div>
             </div>
           </div>
@@ -260,9 +248,7 @@ export const MonthlyReports = () => {
 
       {/* Tabla de transacciones */}
       <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-        <h3 className="text-lg font-semibold mb-4 text-white">
-          Detalle de transacciones
-        </h3>
+        <h3 className="text-lg font-semibold mb-4 text-white">Detalle de transacciones</h3>
 
         {transactions.length > 0 ? (
           <DataTable
@@ -291,8 +277,12 @@ export const MonthlyReports = () => {
               header="Tipo"
               body={(row) => (
                 <Tag
-                  value={row.type === "income" ? "Ingreso" : row.type === "savings" ? "Ahorro" : "Gasto"}
-                  severity={row.type === "income" ? "success" : row.type === "savings" ? "info" : "danger"}
+                  value={
+                    row.type === "income" ? "Ingreso" : row.type === "savings" ? "Ahorro" : "Gasto"
+                  }
+                  severity={
+                    row.type === "income" ? "success" : row.type === "savings" ? "info" : "danger"
+                  }
                   className="text-xs"
                 />
               )}
@@ -302,9 +292,7 @@ export const MonthlyReports = () => {
               field="category"
               header="Categoría"
               body={(row) => (
-                <span className="text-[#94a3b8] text-sm">
-                  {getCategoryLabel(row.category)}
-                </span>
+                <span className="text-[#94a3b8] text-sm">{getCategoryLabel(row.category)}</span>
               )}
               sortable
             />
@@ -312,9 +300,7 @@ export const MonthlyReports = () => {
               field="description"
               header="Descripción"
               body={(row) => (
-                <span className="text-white text-sm font-medium">
-                  {row.description}
-                </span>
+                <span className="text-white text-sm font-medium">{row.description}</span>
               )}
               sortable
             />
@@ -325,13 +311,13 @@ export const MonthlyReports = () => {
                 <span
                   className={`text-sm font-bold ${
                     row.type === "income"
-                     ? "text-emerald-400"
-                     : row.type === "savings"
-                     ? "text-blue-400"
-                     : "text-red-400"
+                      ? "text-emerald-400"
+                      : row.type === "savings"
+                        ? "text-blue-400"
+                        : "text-red-400"
                   }`}
                 >
-                   {row.type === "income" ? "+" : row.type === "expense" ? "-" : ""}
+                  {row.type === "income" ? "+" : row.type === "expense" ? "-" : ""}
                   {formatCurrency(row.amount)}
                 </span>
               )}
@@ -380,10 +366,7 @@ export const MonthlyReports = () => {
         breakpoints={{ "960px": "75vw", "640px": "90vw" }}
       >
         {transactionToEdit && (
-          <EditTransactionForm
-            transaction={transactionToEdit}
-            onClose={handleModalClose}
-          />
+          <EditTransactionForm transaction={transactionToEdit} onClose={handleModalClose} />
         )}
       </Dialog>
 

@@ -20,7 +20,11 @@ export const TransactionForm = () => {
   const [date, setDate] = useState(new Date());
   const [installments, setInstallments] = useState(0);
   const [errors, setErrors] = useState({});
-  const [customCategories, setCustomCategories] = useState({ income: [], expense: [], savings: [] });
+  const [customCategories, setCustomCategories] = useState({
+    income: [],
+    expense: [],
+    savings: [],
+  });
   const [showNewCatDialog, setShowNewCatDialog] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const toast = useRef(null);
@@ -31,22 +35,16 @@ export const TransactionForm = () => {
     const fetchCustomCategories = async () => {
       if (!user) return;
       try {
-        const q = query(
-          collection(db, "customCategories"),
-          where("userId", "==", user.uid)
-        );
+        const q = query(collection(db, "customCategories"), where("userId", "==", user.uid));
         const querySnapshot = await getDocs(q);
         const income = [];
         const expense = [];
         const savings = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          if (data.type === "income")
-            income.push({ label: data.label, value: data.value });
-          else if (data.type === "expense")
-            expense.push({ label: data.label, value: data.value });
-          else if (data.type === "savings")
-            savings.push({ label: data.label, value: data.value });
+          if (data.type === "income") income.push({ label: data.label, value: data.value });
+          else if (data.type === "expense") expense.push({ label: data.label, value: data.value });
+          else if (data.type === "savings") savings.push({ label: data.label, value: data.value });
         });
         setCustomCategories({ income, expense, savings });
       } catch (error) {
@@ -98,9 +96,7 @@ export const TransactionForm = () => {
       return;
     }
 
-    const monthYear = `${date.getFullYear()}-${String(
-      date.getMonth() + 1
-    ).padStart(2, "0")}`;
+    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
     const transaction = {
       userId: user.uid,
@@ -153,10 +149,7 @@ export const TransactionForm = () => {
       await addDoc(collection(db, "customCategories"), newCategory);
       setCustomCategories((prev) => ({
         ...prev,
-        [type]: [
-          ...prev[type],
-          { label: newCategory.label, value: newCategory.value },
-        ],
+        [type]: [...prev[type], { label: newCategory.label, value: newCategory.value }],
       }));
       setCategory(newCategory.value);
       setNewCatName("");
@@ -223,9 +216,7 @@ export const TransactionForm = () => {
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[#94a3b8]">
-              Categoría
-            </label>
+            <label className="text-sm font-medium text-[#94a3b8]">Categoría</label>
             <div className="flex gap-2">
               <Dropdown
                 value={category}
@@ -244,9 +235,7 @@ export const TransactionForm = () => {
                 onClick={() => setShowNewCatDialog(true)}
               />
             </div>
-            {errors.category && (
-              <Message severity="error" text={errors.category} />
-            )}
+            {errors.category && <Message severity="error" text={errors.category} />}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -264,34 +253,26 @@ export const TransactionForm = () => {
 
           {category === "tarjeta-credito" && (
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-[#94a3b8]">
-                Cuotas
-              </label>
+              <label className="text-sm font-medium text-[#94a3b8]">Cuotas</label>
               <InputNumber
                 value={installments}
                 onValueChange={(e) => setInstallments(e.value)}
                 min={0}
                 className="w-full"
               />
-              {errors.installments && (
-                <Message severity="error" text={errors.installments} />
-              )}
+              {errors.installments && <Message severity="error" text={errors.installments} />}
             </div>
           )}
 
           <div className="flex flex-col gap-2 md:col-span-2">
-            <label className="text-sm font-medium text-[#94a3b8]">
-              Descripción
-            </label>
+            <label className="text-sm font-medium text-[#94a3b8]">Descripción</label>
             <InputText
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full"
               placeholder="Ingrese una descripción"
             />
-            {errors.description && (
-              <Message severity="error" text={errors.description} />
-            )}
+            {errors.description && <Message severity="error" text={errors.description} />}
           </div>
         </div>
 
@@ -339,9 +320,7 @@ export const TransactionForm = () => {
         }
       >
         <div className="flex flex-col gap-3 pt-2">
-          <label className="text-sm font-medium text-[#94a3b8]">
-            Nombre de la categoría
-          </label>
+          <label className="text-sm font-medium text-[#94a3b8]">Nombre de la categoría</label>
           <InputText
             value={newCatName}
             onChange={(e) => setNewCatName(e.target.value)}

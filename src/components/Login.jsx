@@ -97,9 +97,7 @@ export const Login = () => {
 
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">
-              ¡Bienvenido de nuevo!
-            </h1>
+            <h1 className="text-3xl font-bold text-white mb-2">¡Bienvenido de nuevo!</h1>
             <p className="text-[#94a3b8]">Por favor ingresa tus datos</p>
           </div>
 

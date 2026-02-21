@@ -133,9 +133,7 @@ export const TransactionsProvider = ({ children }) => {
       const { id, ...dataToUpdate } = updatedTransaction;
       await updateDoc(transactionRef, dataToUpdate);
 
-      setTransactions((prev) =>
-        prev.map((t) => (t.id === id ? updatedTransaction : t))
-      );
+      setTransactions((prev) => prev.map((t) => (t.id === id ? updatedTransaction : t)));
     } catch (error) {
       console.error("Error al actualizar transacción:", error);
     }

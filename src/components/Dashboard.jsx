@@ -283,16 +283,10 @@ export const Dashboard = () => {
 
   // --- Helpers ---
   const savingsPercentage =
-    monthlyIncome > 0
-      ? Math.round((monthlySavingsDeposits / monthlyIncome) * 100)
-      : 0;
+    monthlyIncome > 0 ? Math.round((monthlySavingsDeposits / monthlyIncome) * 100) : 0;
 
   const getCategoryLabel = (value) => {
-    const allCategories = [
-      ...categories.income,
-      ...categories.savings,
-      ...categories.expense,
-    ];
+    const allCategories = [...categories.income, ...categories.savings, ...categories.expense];
     return allCategories.find((c) => c.value === value)?.label || value;
   };
 
@@ -304,14 +298,10 @@ export const Dashboard = () => {
     };
     return config[type] || config.expense;
   };
-// --- Transacciones filtradas ---
+  // --- Transacciones filtradas ---
   const filteredTransactions = transactions.filter((t) => {
     if (filterType && t.type !== filterType) return false;
-    if (
-      filterText &&
-      !t.description.toLowerCase().includes(filterText.toLowerCase())
-    )
-      return false;
+    if (filterText && !t.description.toLowerCase().includes(filterText.toLowerCase())) return false;
     return true;
   });
   const clearFilters = () => {
@@ -344,12 +334,8 @@ export const Dashboard = () => {
       label: "Disponible",
       value: formatCurrency(monthlyAvailable),
       color: monthlyAvailable >= 0 ? "text-emerald-400" : "text-red-400",
-      borderColor:
-        monthlyAvailable >= 0
-          ? "border-emerald-500/30"
-          : "border-red-500/30",
-      bgGlow:
-        monthlyAvailable >= 0 ? "bg-emerald-500/5" : "bg-red-500/5",
+      borderColor: monthlyAvailable >= 0 ? "border-emerald-500/30" : "border-red-500/30",
+      bgGlow: monthlyAvailable >= 0 ? "bg-emerald-500/5" : "bg-red-500/5",
     },
     {
       icon: <TrendingUp className="w-8 h-8" />,
@@ -377,9 +363,7 @@ export const Dashboard = () => {
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <p className="text-white font-medium text-sm">
-                      {transaction.description}
-                    </p>
+                    <p className="text-white font-medium text-sm">{transaction.description}</p>
                     <Tag
                       value={typeConfig.label}
                       severity={typeConfig.severity}
@@ -396,8 +380,8 @@ export const Dashboard = () => {
                     transaction.type === "income"
                       ? "text-emerald-400"
                       : transaction.type === "savings"
-                      ? "text-blue-400"
-                      : "text-red-400"
+                        ? "text-blue-400"
+                        : "text-red-400"
                   }`}
                 >
                   {typeConfig.sign}
@@ -439,7 +423,7 @@ export const Dashboard = () => {
   // --- Desktop table ---
   const renderTable = () => (
     <DataTable
-      value={filteredTransactions} 
+      value={filteredTransactions}
       paginator
       rows={10}
       rowsPerPageOptions={[5, 10, 25, 50]}
@@ -451,29 +435,21 @@ export const Dashboard = () => {
         field="date"
         header="Fecha"
         body={(row) => (
-          <span className="text-[#cbd5e1] text-sm">
-            {format(new Date(row.date), "dd/MM/yyyy")}
-          </span>
+          <span className="text-[#cbd5e1] text-sm">{format(new Date(row.date), "dd/MM/yyyy")}</span>
         )}
         sortable
       />
       <Column
         field="description"
         header="Descripción"
-        body={(row) => (
-          <span className="text-white text-sm font-medium">
-            {row.description}
-          </span>
-        )}
+        body={(row) => <span className="text-white text-sm font-medium">{row.description}</span>}
         sortable
       />
       <Column
         field="category"
         header="Categoría"
         body={(row) => (
-          <span className="text-[#94a3b8] text-sm">
-            {getCategoryLabel(row.category)}
-          </span>
+          <span className="text-[#94a3b8] text-sm">{getCategoryLabel(row.category)}</span>
         )}
         sortable
       />
@@ -483,11 +459,7 @@ export const Dashboard = () => {
         body={(row) => {
           const typeConfig = getTypeConfig(row.type);
           return (
-            <Tag
-              value={typeConfig.label}
-              severity={typeConfig.severity}
-              className="text-xs"
-            />
+            <Tag value={typeConfig.label} severity={typeConfig.severity} className="text-xs" />
           );
         }}
         sortable
@@ -503,8 +475,8 @@ export const Dashboard = () => {
                 row.type === "income"
                   ? "text-emerald-400"
                   : row.type === "savings"
-                  ? "text-blue-400"
-                  : "text-red-400"
+                    ? "text-blue-400"
+                    : "text-red-400"
               }`}
             >
               {typeConfig.sign}
@@ -543,24 +515,17 @@ export const Dashboard = () => {
   return (
     <div>
       <Toast ref={toast} />
-      <h1 className="text-2xl font-bold mb-6 text-white">
-        Análisis del gasto
-      </h1>
+      <h1 className="text-2xl font-bold mb-6 text-white">Análisis del gasto</h1>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {summaryCards.map((card, index) => (
-          <div
-            key={index}
-            className={`rounded-xl border ${card.borderColor} ${card.bgGlow} p-5`}
-          >
+          <div key={index} className={`rounded-xl border ${card.borderColor} ${card.bgGlow} p-5`}>
             <div className="flex items-center gap-4">
               <div className={`${card.color} opacity-80`}>{card.icon}</div>
               <div>
                 <p className="text-[#94a3b8] text-sm">{card.label}</p>
-                <p className={`text-2xl font-bold ${card.color} mt-1`}>
-                  {card.value}
-                </p>
+                <p className={`text-2xl font-bold ${card.color} mt-1`}>{card.value}</p>
               </div>
             </div>
           </div>
@@ -568,13 +533,11 @@ export const Dashboard = () => {
       </div>
 
       <BudgetProgress transactions={transactions} />
-      
+
       {/* Sección de ahorro */}
       {monthlySavingsDeposits > 0 && (
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-5 mb-6">
-          <h3 className="text-lg font-semibold mb-4 text-white">
-            Detalle de ahorro
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">Detalle de ahorro</h3>
 
           {/* Barra de progreso */}
           <div className="mb-4">
@@ -602,15 +565,10 @@ export const Dashboard = () => {
                   key={index}
                   className="flex items-center gap-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3"
                 >
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                   <div>
                     <p className="text-xs text-[#94a3b8]">{item.category}</p>
-                    <p className="text-sm font-bold text-blue-400">
-                      {formatCurrency(item.amount)}
-                    </p>
+                    <p className="text-sm font-bold text-blue-400">{formatCurrency(item.amount)}</p>
                   </div>
                 </div>
               ))}
@@ -622,16 +580,9 @@ export const Dashboard = () => {
       {/* Chart + Table */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">
-            Gastos por categoría
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">Gastos por categoría</h3>
           {expensesByCategory.length > 0 ? (
-            <Chart
-              type="doughnut"
-              data={chartData}
-              options={chartOptions}
-              className="w-full"
-            />
+            <Chart type="doughnut" data={chartData} options={chartOptions} className="w-full" />
           ) : (
             <p className="text-[#94a3b8] text-sm text-center py-8">
               No hay gastos registrados este mes.
@@ -641,75 +592,75 @@ export const Dashboard = () => {
 
         <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
           <div className="flex items-center justify-between mb-4">
-             <h3 className="text-lg font-semibold text-white">
-               Transacciones recientes
-               {hasActiveFilters && (
-                 <span className="text-xs text-[#94a3b8] font-normal ml-2">
-                   ({filteredTransactions.length} de {transactions.length})
-                 </span>
-               )}
-             </h3>
-             <div className="flex gap-2">
-               {hasActiveFilters && (
-                 <Button
-                   icon="pi pi-filter-slash"
-                   className="p-button-rounded p-button-text p-button-sm"
-                   tooltip="Limpiar filtros"
-                   tooltipOptions={{ position: "top" }}
-                   onClick={clearFilters}
-                   severity="secondary"
-                 />
-               )}
-               <Button
-                 icon="pi pi-filter"
-                 className={`p-button-rounded p-button-text p-button-sm ${
-                   showFilters ? "text-purple-400" : ""
-                 }`}
-                 tooltip="Filtros"
-                 tooltipOptions={{ position: "top" }}
-                 onClick={() => setShowFilters(!showFilters)}
-               />
-             </div>
-           </div>
+            <h3 className="text-lg font-semibold text-white">
+              Transacciones recientes
+              {hasActiveFilters && (
+                <span className="text-xs text-[#94a3b8] font-normal ml-2">
+                  ({filteredTransactions.length} de {transactions.length})
+                </span>
+              )}
+            </h3>
+            <div className="flex gap-2">
+              {hasActiveFilters && (
+                <Button
+                  icon="pi pi-filter-slash"
+                  className="p-button-rounded p-button-text p-button-sm"
+                  tooltip="Limpiar filtros"
+                  tooltipOptions={{ position: "top" }}
+                  onClick={clearFilters}
+                  severity="secondary"
+                />
+              )}
+              <Button
+                icon="pi pi-filter"
+                className={`p-button-rounded p-button-text p-button-sm ${
+                  showFilters ? "text-purple-400" : ""
+                }`}
+                tooltip="Filtros"
+                tooltipOptions={{ position: "top" }}
+                onClick={() => setShowFilters(!showFilters)}
+              />
+            </div>
+          </div>
 
-           {/* Panel de filtros */}
-           {showFilters && (
-             <div className="flex flex-col sm:flex-row gap-3 mb-4 p-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a]">
-               <div className="flex flex-col gap-1 flex-1">
-                 <label className="text-xs text-[#64748b]">Buscar</label>
-                 <span className="p-input-icon-left w-full">
-                   <i className="pi pi-search text-[#64748b]" />
-                   <InputText
-                     value={filterText}
-                     onChange={(e) => {
-                       setFilterText(e.target.value);
-                       setFirst(0);
-                     }}
-                     placeholder="Buscar por descripción..."
-                     className="w-full p-inputtext-sm"
-                   />
-                 </span>
-               </div>
-               <div className="flex flex-col gap-1 sm:w-48">
-                 <label className="text-xs text-[#64748b]">Tipo</label>
-                 <Dropdown
-                   value={filterType}
-                   options={[
-                     { label: "Todos", value: null },
-                     { label: "Ingreso", value: "income" },
-                     { label: "Ahorro", value: "savings" },
-                     { label: "Gasto", value: "expense" },
-                   ]}
-                   onChange={(e) => {
-                     setFilterType(e.value);
-                     setFirst(0);
-                   }}
-                   placeholder="Todos"
-                   className="w-full p-inputtext-sm"
-                 />
-               </div>
-             </div>
-           )}
+          {/* Panel de filtros */}
+          {showFilters && (
+            <div className="flex flex-col sm:flex-row gap-3 mb-4 p-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a]">
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-xs text-[#64748b]">Buscar</label>
+                <span className="p-input-icon-left w-full">
+                  <i className="pi pi-search text-[#64748b]" />
+                  <InputText
+                    value={filterText}
+                    onChange={(e) => {
+                      setFilterText(e.target.value);
+                      setFirst(0);
+                    }}
+                    placeholder="Buscar por descripción..."
+                    className="w-full p-inputtext-sm"
+                  />
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 sm:w-48">
+                <label className="text-xs text-[#64748b]">Tipo</label>
+                <Dropdown
+                  value={filterType}
+                  options={[
+                    { label: "Todos", value: null },
+                    { label: "Ingreso", value: "income" },
+                    { label: "Ahorro", value: "savings" },
+                    { label: "Gasto", value: "expense" },
+                  ]}
+                  onChange={(e) => {
+                    setFilterType(e.value);
+                    setFirst(0);
+                  }}
+                  placeholder="Todos"
+                  className="w-full p-inputtext-sm"
+                />
+              </div>
+            </div>
+          )}
           {filteredTransactions.length > 0 ? (
             isMobile ? (
               renderCards()
@@ -719,8 +670,8 @@ export const Dashboard = () => {
           ) : (
             <p className="text-[#94a3b8] text-sm text-center py-8">
               {hasActiveFilters
-               ? "No hay transacciones que coincidan con los filtros."
-               : "No hay transacciones este mes."}
+                ? "No hay transacciones que coincidan con los filtros."
+                : "No hay transacciones este mes."}
             </p>
           )}
         </div>

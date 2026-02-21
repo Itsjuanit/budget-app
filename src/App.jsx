@@ -41,9 +41,7 @@ function App() {
                 <div className="flex justify-between h-16 items-center">
                   <div className="flex items-center gap-3">
                     <i className="pi pi-wallet text-3xl text-purple-400"></i>
-                    <span className="text-xl font-bold text-white tracking-wide">
-                      PAGATODO
-                    </span>
+                    <span className="text-xl font-bold text-white tracking-wide">PAGATODO</span>
                   </div>
                   <AuthActions />
                 </div>
@@ -78,12 +76,10 @@ function App() {
                           </TabPanel>
                           <TabPanel header="Estadísticas">
                             <div className="flex flex-col gap-6">
-                              <h2 className="text-2xl font-semibold text-white">
-                                Estadísticas
-                              </h2>
+                              <h2 className="text-2xl font-semibold text-white">Estadísticas</h2>
                               <StatsDashboard />
                             </div>
-                         </TabPanel>
+                          </TabPanel>
                         </TabView>
                       </TransactionsProvider>
                     </ProtectedRoute>

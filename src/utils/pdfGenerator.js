@@ -7,13 +7,13 @@ import { categories as defaultCategories } from "./categories";
 
 // Paleta de colores consistente con la app
 const COLORS = {
-  primary: [167, 139, 250],       // #a78bfa — purple
-  dark: [26, 26, 46],             // #1a1a2e
-  surface: [30, 30, 58],          // #1e1e3a
-  text: [226, 232, 240],          // #e2e8f0
+  primary: [167, 139, 250], // #a78bfa — purple
+  dark: [26, 26, 46], // #1a1a2e
+  surface: [30, 30, 58], // #1e1e3a
+  text: [226, 232, 240], // #e2e8f0
   textSecondary: [148, 163, 184], // #94a3b8
-  green: [52, 211, 153],          // #34d399
-  red: [248, 113, 113],           // #f87171
+  green: [52, 211, 153], // #34d399
+  red: [248, 113, 113], // #f87171
   white: [255, 255, 255],
 };
 
@@ -21,10 +21,7 @@ const COLORS = {
  * Obtiene el label legible de una categoría a partir de su value.
  */
 const getCategoryLabel = (value) => {
-  const allCategories = [
-    ...defaultCategories.income,
-    ...defaultCategories.expense,
-  ];
+  const allCategories = [...defaultCategories.income, ...defaultCategories.expense];
   return allCategories.find((c) => c.value === value)?.label || value;
 };
 
@@ -43,13 +40,7 @@ const generateFileName = (selectedMonth) => {
  */
 const drawPageBackground = (doc) => {
   doc.setFillColor(...COLORS.dark);
-  doc.rect(
-    0,
-    0,
-    doc.internal.pageSize.getWidth(),
-    doc.internal.pageSize.getHeight(),
-    "F"
-  );
+  doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), "F");
 };
 
 /**
@@ -76,8 +67,7 @@ const drawHeader = (doc, selectedMonth) => {
   const [year, month] = selectedMonth.split("-");
   const date = new Date(parseInt(year), parseInt(month) - 1);
   const monthLabel = format(date, "MMMM yyyy", { locale: es });
-  const capitalizedMonth =
-    monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+  const capitalizedMonth = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
@@ -86,12 +76,9 @@ const drawHeader = (doc, selectedMonth) => {
 
   // Fecha de generación
   doc.setFontSize(8);
-  doc.text(
-    `Generado: ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
-    pageWidth - 14,
-    33,
-    { align: "right" }
-  );
+  doc.text(`Generado: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageWidth - 14, 33, {
+    align: "right",
+  });
 };
 
 /**
@@ -152,9 +139,7 @@ const drawSummaryCards = (doc, data, startY) => {
  * Dibuja la tabla de transacciones.
  */
 const drawTransactionsTable = (doc, transactions, startY) => {
-  const sortedTransactions = [...transactions].sort(
-    (a, b) => new Date(a.date) - new Date(b.date)
-  );
+  const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const tableRows = sortedTransactions.map((t) => [
     format(new Date(t.date), "dd/MM/yyyy"),
@@ -206,18 +191,14 @@ const drawTransactionsTable = (doc, transactions, startY) => {
       if (data.section === "body" && data.column.index === 1) {
         const value = data.cell.raw;
         data.cell.styles.textColor =
-         value === "INGRESO" ? COLORS.green
-         : value === "AHORRO" ? [96, 165, 250]
-         : COLORS.red;
+          value === "INGRESO" ? COLORS.green : value === "AHORRO" ? [96, 165, 250] : COLORS.red;
         data.cell.styles.fontStyle = "bold";
       }
       // Colorear monto
       if (data.section === "body" && data.column.index === 4) {
         const type = data.row.raw[1];
-       data.cell.styles.textColor =
-         type === "INGRESO" ? COLORS.green
-         : type === "AHORRO" ? [96, 165, 250]
-         : COLORS.red;
+        data.cell.styles.textColor =
+          type === "INGRESO" ? COLORS.green : type === "AHORRO" ? [96, 165, 250] : COLORS.red;
         data.cell.styles.fontStyle = "bold";
       }
     },
@@ -237,8 +218,7 @@ const drawCreditCardSummary = (doc, transactions, startY) => {
   if (creditCardTransactions.length === 0) return startY;
 
   const totalRemaining = creditCardTransactions.reduce((acc, t) => {
-    const perInstallment =
-      t.installments > 0 ? t.amount / t.installments : 0;
+    const perInstallment = t.installments > 0 ? t.amount / t.installments : 0;
     const remaining = t.installmentsRemaining || 0;
     return acc + remaining * perInstallment;
   }, 0);
@@ -280,12 +260,9 @@ const drawFooter = (doc) => {
 
   doc.setFontSize(7);
   doc.setTextColor(...COLORS.textSecondary);
-  doc.text(
-    "PAGATODO — Generado automáticamente",
-    pageWidth / 2,
-    pageHeight - 6,
-    { align: "center" }
-  );
+  doc.text("PAGATODO — Generado automáticamente", pageWidth / 2, pageHeight - 6, {
+    align: "center",
+  });
 };
 
 /**
@@ -301,11 +278,7 @@ export const generatePDF = (data, selectedMonth) => {
   // Secciones
   drawHeader(doc, selectedMonth);
   const afterSummary = drawSummaryCards(doc, data, 50);
-  const afterTable = drawTransactionsTable(
-    doc,
-    data.transactions,
-    afterSummary
-  );
+  const afterTable = drawTransactionsTable(doc, data.transactions, afterSummary);
   drawCreditCardSummary(doc, data.transactions, afterTable);
 
   // Footer en todas las páginas

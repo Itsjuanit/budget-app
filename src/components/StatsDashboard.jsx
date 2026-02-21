@@ -17,9 +17,7 @@ const getLastNMonths = (n) => {
   const now = new Date();
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push(
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-    );
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
   return months;
 };
@@ -135,8 +133,7 @@ export const StatsDashboard = () => {
   );
   const activeCount = Math.max(activeMonths.length, 1);
 
-  const avgExpenses =
-    activeMonths.reduce((sum, m) => sum + byMonth[m].expenses, 0) / activeCount;
+  const avgExpenses = activeMonths.reduce((sum, m) => sum + byMonth[m].expenses, 0) / activeCount;
 
   // Top 5 categorías de gasto (acumulado últimos 12 meses)
   const expenseByCategory = {};
@@ -144,8 +141,7 @@ export const StatsDashboard = () => {
     byMonth[m].transactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
-        expenseByCategory[t.category] =
-          (expenseByCategory[t.category] || 0) + t.amount;
+        expenseByCategory[t.category] = (expenseByCategory[t.category] || 0) + t.amount;
       });
   });
 
@@ -373,9 +369,7 @@ export const StatsDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Evolución mensual */}
         <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">
-            Evolución mensual
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">Evolución mensual</h3>
           <div style={{ height: "300px" }}>
             <Chart type="line" data={evolutionData} options={evolutionOptions} />
           </div>
@@ -383,9 +377,7 @@ export const StatsDashboard = () => {
 
         {/* Barras comparativas */}
         <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">
-            Ingresos vs Gastos
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">Ingresos vs Gastos</h3>
           <div style={{ height: "300px" }}>
             <Chart type="bar" data={barsData} options={barsOptions} />
           </div>
@@ -396,30 +388,20 @@ export const StatsDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Distribución */}
         <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">
-            Distribución (12 meses)
-          </h3>
-          <Chart
-            type="doughnut"
-            data={distributionData}
-            options={distributionOptions}
-          />
+          <h3 className="text-lg font-semibold mb-4 text-white">Distribución (12 meses)</h3>
+          <Chart type="doughnut" data={distributionData} options={distributionOptions} />
         </div>
 
         {/* Top 5 categorías */}
         <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">
-            Top 5 categorías de gasto
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">Top 5 categorías de gasto</h3>
           {top5Categories.length > 0 ? (
             <div className="flex flex-col gap-4">
               {top5Categories.map((cat, index) => (
                 <div key={cat.category}>
                   <div className="flex justify-between items-center mb-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#64748b] w-4">
-                        {index + 1}
-                      </span>
+                      <span className="text-xs font-bold text-[#64748b] w-4">{index + 1}</span>
                       <div
                         className="w-2.5 h-2.5 rounded-full"
                         style={{ backgroundColor: cat.color }}
@@ -440,25 +422,19 @@ export const StatsDashboard = () => {
               ))}
             </div>
           ) : (
-            <p className="text-[#94a3b8] text-sm text-center py-8">
-              No hay gastos registrados.
-            </p>
+            <p className="text-[#94a3b8] text-sm text-center py-8">No hay gastos registrados.</p>
           )}
         </div>
 
         {/* Promedio vs mes actual */}
         <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">
-            Gasto actual vs promedio
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">Gasto actual vs promedio</h3>
           <div className="flex flex-col items-center justify-center py-4 gap-6">
             {/* Indicador circular simulado */}
             <div className="relative">
               <div
                 className={`w-32 h-32 rounded-full border-8 flex items-center justify-center ${
-                  isOverAvg
-                    ? "border-red-500/40"
-                    : "border-emerald-500/40"
+                  isOverAvg ? "border-red-500/40" : "border-emerald-500/40"
                 }`}
               >
                 <div className="text-center">
@@ -478,9 +454,7 @@ export const StatsDashboard = () => {
               <div className="flex justify-between items-center rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3">
                 <span className="text-sm text-[#94a3b8]">Mes actual</span>
                 <span
-                  className={`text-sm font-bold ${
-                    isOverAvg ? "text-red-400" : "text-emerald-400"
-                  }`}
+                  className={`text-sm font-bold ${isOverAvg ? "text-red-400" : "text-emerald-400"}`}
                 >
                   {formatCurrency(currentData.expenses)}
                 </span>
@@ -494,9 +468,7 @@ export const StatsDashboard = () => {
               <div className="flex justify-between items-center rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3">
                 <span className="text-sm text-[#94a3b8]">Diferencia</span>
                 <span
-                  className={`text-sm font-bold ${
-                    isOverAvg ? "text-red-400" : "text-emerald-400"
-                  }`}
+                  className={`text-sm font-bold ${isOverAvg ? "text-red-400" : "text-emerald-400"}`}
                 >
                   {isOverAvg ? "+" : "-"}
                   {formatCurrency(Math.abs(currentData.expenses - avgExpenses))}

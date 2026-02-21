@@ -34,8 +34,7 @@ export const BudgetProgress = ({ transactions = [] }) => {
   transactions
     .filter((t) => t.type === "expense")
     .forEach((t) => {
-      expensesByCategory[t.category] =
-        (expensesByCategory[t.category] || 0) + t.amount;
+      expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.amount;
     });
 
   // Filtrar solo categorías que tienen presupuesto definido
@@ -44,9 +43,7 @@ export const BudgetProgress = ({ transactions = [] }) => {
     .map(([categoryValue, limit]) => {
       const spent = expensesByCategory[categoryValue] || 0;
       const percentage = Math.min(Math.round((spent / limit) * 100), 100);
-      const catInfo = defaultCategories.expense.find(
-        (c) => c.value === categoryValue
-      );
+      const catInfo = defaultCategories.expense.find((c) => c.value === categoryValue);
 
       return {
         value: categoryValue,
@@ -73,9 +70,7 @@ export const BudgetProgress = ({ transactions = [] }) => {
     <>
       <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">
-            Presupuesto mensual
-          </h3>
+          <h3 className="text-lg font-semibold text-white">Presupuesto mensual</h3>
           <Button
             icon={hasBudgets ? "pi pi-cog" : "pi pi-plus"}
             label={hasBudgets ? "Editar" : "Configurar"}
@@ -116,9 +111,7 @@ export const BudgetProgress = ({ transactions = [] }) => {
                   color={getProgressColor(cat.percentage)}
                 />
                 <div className="flex justify-between mt-1">
-                  <span className="text-xs text-[#64748b]">
-                    {cat.percentage}% usado
-                  </span>
+                  <span className="text-xs text-[#64748b]">{cat.percentage}% usado</span>
                   <span
                     className={`text-xs ${
                       cat.overBudget ? "text-red-400 font-medium" : "text-[#64748b]"
@@ -145,10 +138,7 @@ export const BudgetProgress = ({ transactions = [] }) => {
         )}
       </div>
 
-      <BudgetConfig
-        visible={showConfig}
-        onHide={() => setShowConfig(false)}
-      />
+      <BudgetConfig visible={showConfig} onHide={() => setShowConfig(false)} />
     </>
   );
 };

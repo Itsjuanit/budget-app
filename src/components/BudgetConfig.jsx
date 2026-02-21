@@ -115,8 +115,8 @@ export const BudgetConfig = ({ visible, onHide }) => {
         }
       >
         <p className="text-[#94a3b8] text-sm mb-4">
-          Definí un límite mensual para las categorías que querés controlar.
-          Dejá en 0 las que no necesitan límite.
+          Definí un límite mensual para las categorías que querés controlar. Dejá en 0 las que no
+          necesitan límite.
         </p>
 
         <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-2">
@@ -130,9 +130,7 @@ export const BudgetConfig = ({ visible, onHide }) => {
                   className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: cat.color }}
                 />
-                <span className="text-sm text-white truncate">
-                  {cat.label}
-                </span>
+                <span className="text-sm text-white truncate">{cat.label}</span>
               </div>
               <InputNumber
                 value={budgets[cat.value] || null}
