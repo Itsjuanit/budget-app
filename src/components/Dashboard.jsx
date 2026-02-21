@@ -25,6 +25,7 @@ import { categories } from "../utils/categories";
 import { EditTransactionForm } from "./EditTransactionForm";
 import { format } from "date-fns";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { BudgetProgress } from "./BudgetProgress";
 
 export const Dashboard = () => {
   const [transactions, setTransactions] = useState([]);
@@ -476,6 +477,8 @@ export const Dashboard = () => {
         ))}
       </div>
 
+      <BudgetProgress transactions={transactions} />
+      
       {/* Sección de ahorro */}
       {monthlySavingsDeposits > 0 && (
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-5 mb-6">

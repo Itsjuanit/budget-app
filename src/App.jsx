@@ -12,6 +12,7 @@ import { TransactionsProvider } from "./context/TransactionsProvider";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { configurePrimeReactLocale } from "./utils/primeReactLocale";
 import { initializePWAInstallPrompt } from "./swHandler";
+import { MonthlyEvolution } from "./components/MonthlyEvolution";
 
 configurePrimeReactLocale();
 
@@ -75,6 +76,14 @@ function App() {
                           <TabPanel header="Reporte mensual">
                             <MonthlyReports />
                           </TabPanel>
+                          <TabPanel header="Estadísticas">
+                            <div className="flex flex-col gap-6">
+                              <h2 className="text-2xl font-semibold text-white">
+                                Estadísticas
+                              </h2>
+                              <MonthlyEvolution />
+                            </div>
+                         </TabPanel>
                         </TabView>
                       </TransactionsProvider>
                     </ProtectedRoute>
