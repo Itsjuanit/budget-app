@@ -9,6 +9,8 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Tag } from "primereact/tag";
 import { ProgressBar } from "primereact/progressbar";
+import { InputText } from "primereact/inputtext";
+import { Dropdown } from "primereact/dropdown";
 import { formatCurrency } from "../utils/format";
 import { Wallet, TrendingUp, PiggyBank, Landmark } from "lucide-react";
 import { db } from "@/firebaseConfig";
@@ -45,6 +47,9 @@ export const Dashboard = () => {
   const [transactionToDelete, setTransactionToDelete] = useState(null);
   const [budgets, setBudgets] = useState({});
   const [alertsShown, setAlertsShown] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterType, setFilterType] = useState(null);
+  const [filterText, setFilterText] = useState("");
 
   const toast = useRef(null);
 
@@ -138,7 +143,7 @@ export const Dashboard = () => {
 
     return () => unsubscribe();
   }, []);
-  
+
   // Alertas de presupuesto
   useEffect(() => {
     if (alertsShown || !toast.current || Object.keys(budgets).length === 0) return;
@@ -299,6 +304,22 @@ export const Dashboard = () => {
     };
     return config[type] || config.expense;
   };
+// --- Transacciones filtradas ---
+  const filteredTransactions = transactions.filter((t) => {
+    if (filterType && t.type !== filterType) return false;
+    if (
+      filterText &&
+      !t.description.toLowerCase().includes(filterText.toLowerCase())
+    )
+      return false;
+    return true;
+  });
+  const clearFilters = () => {
+    setFilterType(null);
+    setFilterText("");
+  };
+
+  const hasActiveFilters = filterType || filterText;
 
   // --- Summary cards ---
   const summaryCards = [
@@ -342,7 +363,7 @@ export const Dashboard = () => {
 
   // --- Mobile cards ---
   const renderCards = () => {
-    const currentTransactions = transactions.slice(first, first + rows);
+    const currentTransactions = filteredTransactions.slice(first, first + rows);
 
     return (
       <div className="flex flex-col gap-3">
@@ -406,7 +427,7 @@ export const Dashboard = () => {
         <Paginator
           first={first}
           rows={rows}
-          totalRecords={transactions.length}
+          totalRecords={filteredTransactions.length}
           rowsPerPageOptions={[5, 10, 20]}
           onPageChange={onPageChange}
           className="mt-2"
@@ -418,7 +439,7 @@ export const Dashboard = () => {
   // --- Desktop table ---
   const renderTable = () => (
     <DataTable
-      value={transactions}
+      value={filteredTransactions} 
       paginator
       rows={10}
       rowsPerPageOptions={[5, 10, 25, 50]}
@@ -619,10 +640,77 @@ export const Dashboard = () => {
         </div>
 
         <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">
-            Transacciones recientes
-          </h3>
-          {transactions.length > 0 ? (
+          <div className="flex items-center justify-between mb-4">
+             <h3 className="text-lg font-semibold text-white">
+               Transacciones recientes
+               {hasActiveFilters && (
+                 <span className="text-xs text-[#94a3b8] font-normal ml-2">
+                   ({filteredTransactions.length} de {transactions.length})
+                 </span>
+               )}
+             </h3>
+             <div className="flex gap-2">
+               {hasActiveFilters && (
+                 <Button
+                   icon="pi pi-filter-slash"
+                   className="p-button-rounded p-button-text p-button-sm"
+                   tooltip="Limpiar filtros"
+                   tooltipOptions={{ position: "top" }}
+                   onClick={clearFilters}
+                   severity="secondary"
+                 />
+               )}
+               <Button
+                 icon="pi pi-filter"
+                 className={`p-button-rounded p-button-text p-button-sm ${
+                   showFilters ? "text-purple-400" : ""
+                 }`}
+                 tooltip="Filtros"
+                 tooltipOptions={{ position: "top" }}
+                 onClick={() => setShowFilters(!showFilters)}
+               />
+             </div>
+           </div>
+
+           {/* Panel de filtros */}
+           {showFilters && (
+             <div className="flex flex-col sm:flex-row gap-3 mb-4 p-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a]">
+               <div className="flex flex-col gap-1 flex-1">
+                 <label className="text-xs text-[#64748b]">Buscar</label>
+                 <span className="p-input-icon-left w-full">
+                   <i className="pi pi-search text-[#64748b]" />
+                   <InputText
+                     value={filterText}
+                     onChange={(e) => {
+                       setFilterText(e.target.value);
+                       setFirst(0);
+                     }}
+                     placeholder="Buscar por descripción..."
+                     className="w-full p-inputtext-sm"
+                   />
+                 </span>
+               </div>
+               <div className="flex flex-col gap-1 sm:w-48">
+                 <label className="text-xs text-[#64748b]">Tipo</label>
+                 <Dropdown
+                   value={filterType}
+                   options={[
+                     { label: "Todos", value: null },
+                     { label: "Ingreso", value: "income" },
+                     { label: "Ahorro", value: "savings" },
+                     { label: "Gasto", value: "expense" },
+                   ]}
+                   onChange={(e) => {
+                     setFilterType(e.value);
+                     setFirst(0);
+                   }}
+                   placeholder="Todos"
+                   className="w-full p-inputtext-sm"
+                 />
+               </div>
+             </div>
+           )}
+          {filteredTransactions.length > 0 ? (
             isMobile ? (
               renderCards()
             ) : (
@@ -630,7 +718,9 @@ export const Dashboard = () => {
             )
           ) : (
             <p className="text-[#94a3b8] text-sm text-center py-8">
-              No hay transacciones este mes.
+              {hasActiveFilters
+               ? "No hay transacciones que coincidan con los filtros."
+               : "No hay transacciones este mes."}
             </p>
           )}
         </div>
