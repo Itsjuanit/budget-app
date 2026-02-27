@@ -79,8 +79,20 @@ export const TransactionsProvider = ({ children }) => {
         const firstMonth = snapshot.docs[0].data().monthYear;
         const currentMonth = getCurrentMonth();
 
-        // Generar todos los meses desde el primero hasta el actual
-        const allMonths = generateMonthRange(firstMonth, currentMonth);
+        // Obtener la transacción más nueva para cubrir meses futuros
+        const newestQuery = query(
+          collection(db, "transactions"),
+          where("userId", "==", user.uid),
+          orderBy("monthYear", "desc"),
+          limit(1)
+        );
+        const newestSnapshot = await getDocs(newestQuery);
+        const lastMonth = newestSnapshot.docs[0]?.data().monthYear || currentMonth;
+
+        // Generar desde el primer mes hasta el mayor entre actual y último con transacciones
+        const endMonth = lastMonth > currentMonth ? lastMonth : currentMonth;
+        const allMonths = generateMonthRange(firstMonth, endMonth);
+
         setAvailableMonths(allMonths);
       } catch (error) {
         console.error("Error al cargar meses disponibles:", error);
