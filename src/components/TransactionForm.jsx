@@ -96,13 +96,6 @@ export const TransactionForm = () => {
     savings: [...(defaultCategories.savings || []), ...customCategories.savings],
   };
 
-  const isSameMonthAndYear = (selectedDate) => {
-    const currentDate = new Date();
-    return (
-      selectedDate.getFullYear() === currentDate.getFullYear() &&
-      selectedDate.getMonth() === currentDate.getMonth()
-    );
-  };
 
   const validateFields = () => {
     const newErrors = {};
@@ -110,8 +103,6 @@ export const TransactionForm = () => {
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
-    if (!isSameMonthAndYear(date))
-      newErrors.date = "Solo puedes registrar transacciones en el mes y año actual.";
     if (category === "tarjeta-credito" && installments < 0)
       newErrors.installments = "Las cuotas no pueden ser negativas.";
     setErrors(newErrors);
@@ -368,6 +359,7 @@ export const TransactionForm = () => {
               className="w-full"
               dateFormat="dd/mm/yy"
               locale="es"
+              maxDate={new Date(new Date().getFullYear(), new Date().getMonth() + 3, 0)}
             />
             {errors.date && <Message severity="error" text={errors.date} />}
           </div>

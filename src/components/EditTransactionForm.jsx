@@ -57,22 +57,12 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
     expense: [...defaultCategories.expense, ...customCategories.expense],
   };
 
-  const isSameMonthAndYear = (selectedDate) => {
-    const currentDate = new Date();
-    return (
-      selectedDate.getFullYear() === currentDate.getFullYear() &&
-      selectedDate.getMonth() === currentDate.getMonth()
-    );
-  };
-
   const validateFields = () => {
     const newErrors = {};
     if (!amount) newErrors.amount = "El monto es obligatorio.";
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
-    if (!isSameMonthAndYear(date))
-      newErrors.date = "Solo puedes editar transacciones del mes y año actual.";
     if (category === "tarjeta-credito" && installments < 0)
       newErrors.installments = "Las cuotas no pueden ser negativas.";
     setErrors(newErrors);
@@ -90,6 +80,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
       category,
       description,
       date: date.toISOString(),
+      monthYear: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
       ...(category === "tarjeta-credito" && {
         installments,
         installmentsRemaining,
@@ -175,6 +166,7 @@ export const EditTransactionForm = ({ transaction, onClose }) => {
             className="w-full"
             dateFormat="dd/mm/yy"
             locale="es"
+            maxDate={new Date(new Date().getFullYear(), new Date().getMonth() + 3, 0)}
           />
           {errors.date && <Message severity="error" text={errors.date} />}
         </div>
