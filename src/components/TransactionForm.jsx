@@ -13,6 +13,7 @@ import { getAuth } from "firebase/auth";
 import { categories as defaultCategories } from "../utils/categories";
 import { fetchDolarRate, convertUsdToArs, dolarTypeOptions } from "../utils/dolarService";
 import { ToggleButton } from "primereact/togglebutton";
+import { CATEGORY_PALETTE } from "../utils/colors";
 
 export const TransactionForm = () => {
   const [type, setType] = useState("expense");
@@ -96,7 +97,6 @@ export const TransactionForm = () => {
     savings: [...(defaultCategories.savings || []), ...customCategories.savings],
   };
 
-
   const validateFields = () => {
     const newErrors = {};
     if (!amount) newErrors.amount = "El monto es obligatorio.";
@@ -169,11 +169,15 @@ export const TransactionForm = () => {
     if (!newCatName.trim()) return;
 
     try {
+      // Calcular color basado en cantidad de categorías existentes del mismo tipo
+      const existingCount = mergedCategories[type]?.length || 0;
+      const color = CATEGORY_PALETTE[existingCount % CATEGORY_PALETTE.length];
       const newCategory = {
         userId: user.uid,
         type,
         label: newCatName,
         value: newCatName.toLowerCase().replace(/\s+/g, "-"),
+        color,
       };
 
       await addDoc(collection(db, "customCategories"), newCategory);

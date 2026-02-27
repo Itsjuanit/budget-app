@@ -29,6 +29,7 @@ import { EditTransactionForm } from "./EditTransactionForm";
 import { format } from "date-fns";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { BudgetProgress } from "./BudgetProgress";
+import { CATEGORY_PALETTE } from "../utils/colors";
 
 export const Dashboard = () => {
   const [transactions, setTransactions] = useState([]);
@@ -50,6 +51,12 @@ export const Dashboard = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState(null);
   const [filterText, setFilterText] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [customCategories, setCustomCategories] = useState({
+    income: [],
+    expense: [],
+    savings: [],
+  });
 
   const toast = useRef(null);
 
@@ -60,18 +67,48 @@ export const Dashboard = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Cargar categorías personalizadas en tiempo real
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
-    const currentMonthYear = `${new Date().getFullYear()}-${String(
-      new Date().getMonth() + 1
+    if (!user) return;
+
+    const q = query(collection(db, "customCategories"), where("userId", "==", user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const income = [];
+      const expense = [];
+      const savings = [];
+      let colorIndex = 0;
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const cat = {
+          label: data.label,
+          value: data.value,
+          color: data.color || CATEGORY_PALETTE[colorIndex % CATEGORY_PALETTE.length],
+        };
+        colorIndex++;
+        if (data.type === "income") income.push(cat);
+        else if (data.type === "expense") expense.push(cat);
+        else if (data.type === "savings") savings.push(cat);
+      });
+      setCustomCategories({ income, expense, savings });
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    const monthYear = `${selectedMonth.getFullYear()}-${String(
+      selectedMonth.getMonth() + 1
     ).padStart(2, "0")}`;
 
     if (user) {
       const userTransactionsRef = query(
         collection(db, "transactions"),
         where("userId", "==", user.uid),
-        where("monthYear", "==", currentMonthYear)
+        where("monthYear", "==", monthYear)
       );
 
       const unsubscribe = onSnapshot(userTransactionsRef, (snapshot) => {
@@ -85,7 +122,7 @@ export const Dashboard = () => {
 
       return () => unsubscribe();
     }
-  }, []);
+  }, [selectedMonth]);
 
   useEffect(() => {
     // Gastos
@@ -93,12 +130,13 @@ export const Dashboard = () => {
     const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
     setMonthlyExpenses(totalExpenses);
 
-    const expensesGroupedByCategory = categories.expense
+    const allExpenseCategories = [...categories.expense, ...customCategories.expense];
+    const expensesGroupedByCategory = allExpenseCategories
       .map((category) => {
         const total = expenseTransactions
           .filter((t) => t.category === category.value)
           .reduce((sum, t) => sum + t.amount, 0);
-        return { category: category.label, amount: total, color: category.color };
+        return { category: category.label, amount: total, color: category.color || "#94a3b8" };
       })
       .filter((c) => c.amount > 0);
     setExpensesByCategory(expensesGroupedByCategory);
@@ -114,19 +152,20 @@ export const Dashboard = () => {
     const totalSavings = savingsTransactions.reduce((sum, t) => sum + t.amount, 0);
     setMonthlySavingsDeposits(totalSavings);
 
-    const savingsGrouped = categories.savings
+    const allSavingsCategories = [...categories.savings, ...customCategories.savings];
+    const savingsGrouped = allSavingsCategories
       .map((category) => {
         const total = savingsTransactions
           .filter((t) => t.category === category.value)
           .reduce((sum, t) => sum + t.amount, 0);
-        return { category: category.label, amount: total, color: category.color };
+        return { category: category.label, amount: total, color: category.color || "#94a3b8" };
       })
       .filter((c) => c.amount > 0);
     setSavingsByCategory(savingsGrouped);
 
     // Disponible = ingresos - gastos - ahorros
     setMonthlyAvailable(totalIncome - totalExpenses - totalSavings);
-  }, [transactions]);
+  }, [transactions, customCategories]);
 
   // Cargar presupuestos en tiempo real
   useEffect(() => {
@@ -143,6 +182,11 @@ export const Dashboard = () => {
 
     return () => unsubscribe();
   }, []);
+
+  // Resetear alertas al cambiar de mes
+  useEffect(() => {
+    setAlertsShown(false);
+  }, [selectedMonth]);
 
   // Alertas de presupuesto
   useEffect(() => {
@@ -286,7 +330,14 @@ export const Dashboard = () => {
     monthlyIncome > 0 ? Math.round((monthlySavingsDeposits / monthlyIncome) * 100) : 0;
 
   const getCategoryLabel = (value) => {
-    const allCategories = [...categories.income, ...categories.savings, ...categories.expense];
+    const allCategories = [
+      ...categories.income,
+      ...categories.savings,
+      ...categories.expense,
+      ...customCategories.income,
+      ...customCategories.expense,
+      ...customCategories.savings,
+    ];
     return allCategories.find((c) => c.value === value)?.label || value;
   };
 
@@ -310,6 +361,23 @@ export const Dashboard = () => {
   };
 
   const hasActiveFilters = filterType || filterText;
+
+  // --- Navegación de mes ---
+  const handlePrevMonth = () => {
+    setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1));
+  };
+
+  const isNextMonthDisabled =
+    selectedMonth.getMonth() >= new Date().getMonth() + 2 &&
+    selectedMonth.getFullYear() === new Date().getFullYear();
+
+  const isCurrentMonth =
+    selectedMonth.getMonth() === new Date().getMonth() &&
+    selectedMonth.getFullYear() === new Date().getFullYear();
 
   // --- Summary cards ---
   const summaryCards = [
@@ -515,7 +583,34 @@ export const Dashboard = () => {
   return (
     <div>
       <Toast ref={toast} />
-      <h1 className="text-2xl font-bold mb-6 text-white">Análisis del gasto</h1>
+
+      {/* Header con selector de mes */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+        <h1 className="text-2xl font-bold text-white">Análisis del gasto</h1>
+        <div className="flex items-center gap-2">
+          <Button
+            icon="pi pi-chevron-left"
+            className="p-button-rounded p-button-text p-button-sm"
+            onClick={handlePrevMonth}
+          />
+          <span className="text-white font-medium min-w-[150px] text-center capitalize">
+            {selectedMonth.toLocaleDateString("es-AR", { month: "long", year: "numeric" })}
+          </span>
+          <Button
+            icon="pi pi-chevron-right"
+            className="p-button-rounded p-button-text p-button-sm"
+            onClick={handleNextMonth}
+            disabled={isNextMonthDisabled}
+          />
+          {!isCurrentMonth && (
+            <Button
+              label="Hoy"
+              className="p-button-text p-button-sm text-purple-400"
+              onClick={() => setSelectedMonth(new Date())}
+            />
+          )}
+        </div>
+      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">

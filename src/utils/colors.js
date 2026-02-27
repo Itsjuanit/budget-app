@@ -4,7 +4,7 @@
  * Paleta fija de colores con buen contraste para Lara Dark.
  * Diseñada para hasta 30 categorías sin repetición.
  */
-const CATEGORY_PALETTE = [
+export const CATEGORY_PALETTE = [
   "#818CF8", // indigo
   "#34D399", // emerald
   "#F472B6", // pink
