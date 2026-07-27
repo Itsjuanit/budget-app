@@ -9,6 +9,8 @@ import {
   doc,
   deleteDoc,
   updateDoc,
+  setDoc,
+  getDocs,
   limit,
 } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
@@ -36,6 +38,7 @@ export const TransactionsProvider = ({ children }) => {
   const [monthBounds, setMonthBounds] = useState({ first: null, last: null });
   const [customCategories, setCustomCategories] = useState(EMPTY_CUSTOM_CATEGORIES);
   const [budgets, setBudgets] = useState({});
+  const [archivedCategories, setArchivedCategories] = useState([]);
 
   // --- Transacciones del mes seleccionado (tiempo real) ---
   useEffect(() => {
@@ -126,12 +129,31 @@ export const TransactionsProvider = ({ children }) => {
             id: d.id,
             label: data.label,
             value: data.value,
+            group: data.group || null,
             color: data.color || CATEGORY_PALETTE[index % CATEGORY_PALETTE.length],
           });
         });
         setCustomCategories(grouped);
       },
       (error) => console.error("Error cargando categorías personalizadas:", error)
+    );
+
+    return () => unsubscribe();
+  }, [uid]);
+
+  // --- Categorías archivadas (tiempo real) ---
+  // Un único documento por usuario, así funciona igual para las categorías
+  // por defecto (que no se pueden modificar) y para las personalizadas.
+  useEffect(() => {
+    if (!uid) {
+      setArchivedCategories([]);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "categoryPrefs", uid),
+      (docSnap) => setArchivedCategories(docSnap.exists() ? docSnap.data().archived || [] : []),
+      (error) => console.error("Error cargando preferencias de categorías:", error)
     );
 
     return () => unsubscribe();
@@ -212,6 +234,112 @@ export const TransactionsProvider = ({ children }) => {
     [uid]
   );
 
+  /** Edita una categoría propia (por ahora sólo se usa para reasignarle el grupo). */
+  const updateCustomCategory = useCallback(async (categoryId, changes) => {
+    if (!categoryId) throw new Error("Sólo se pueden editar categorías propias.");
+    await updateDoc(doc(db, "customCategories", categoryId), changes);
+  }, []);
+
+  /**
+   * Cuenta cuántas transacciones usan una categoría, mirando sólo si existe
+   * al menos una: alcanza para decidir entre borrar y archivar, y evita traer
+   * todo el historial.
+   */
+  const countCategoryUsage = useCallback(
+    async (categoryValue) => {
+      if (!uid) return 0;
+      const snapshot = await getDocs(
+        query(
+          collection(db, "transactions"),
+          where("userId", "==", uid),
+          where("category", "==", categoryValue),
+          limit(1)
+        )
+      );
+      return snapshot.size;
+    },
+    [uid]
+  );
+
+  /** Guarda la lista de archivadas, creando el documento si no existía. */
+  const saveArchived = useCallback(
+    async (nextArchived) => {
+      if (!uid) throw new Error("No hay usuario autenticado.");
+      await setDoc(
+        doc(db, "categoryPrefs", uid),
+        { userId: uid, archived: nextArchived, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+    },
+    [uid]
+  );
+
+  /**
+   * Archiva una categoría: desaparece de los desplegables pero el historial la
+   * sigue mostrando con su nombre y color. También se le saca el presupuesto,
+   * que dejaría de tener sentido.
+   */
+  const archiveCategory = useCallback(
+    async (categoryValue) => {
+      if (archivedCategories.includes(categoryValue)) return;
+      await saveArchived([...archivedCategories, categoryValue]);
+
+      if (budgets[categoryValue] !== undefined) {
+        const { [categoryValue]: _removed, ...rest } = budgets;
+        await setDoc(
+          doc(db, "budgets", uid),
+          { userId: uid, categories: rest, updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      }
+    },
+    [archivedCategories, saveArchived, budgets, uid]
+  );
+
+  const unarchiveCategory = useCallback(
+    async (categoryValue) => {
+      await saveArchived(archivedCategories.filter((v) => v !== categoryValue));
+    },
+    [archivedCategories, saveArchived]
+  );
+
+  /**
+   * Borra definitivamente una categoría personalizada.
+   *
+   * Sólo debe llamarse cuando no hay transacciones que la usen: si las hubiera,
+   * quedarían mostrando el identificador crudo en el historial. La UI resuelve
+   * cuál corresponde con countCategoryUsage, pero se revalida acá porque entre
+   * el chequeo y el borrado pudo entrar un movimiento desde el bot.
+   */
+  const deleteCustomCategory = useCallback(
+    async (category) => {
+      if (!category?.id) throw new Error("Sólo se pueden borrar categorías propias.");
+
+      const enUso = await countCategoryUsage(category.value);
+      if (enUso > 0) {
+        const error = new Error("La categoría tiene transacciones asociadas.");
+        error.code = "category/in-use";
+        throw error;
+      }
+
+      await deleteDoc(doc(db, "customCategories", category.id));
+
+      // Se limpia lo que quedaría colgando: el archivado y el presupuesto.
+      if (archivedCategories.includes(category.value)) {
+        await saveArchived(archivedCategories.filter((v) => v !== category.value));
+      }
+      if (budgets[category.value] !== undefined) {
+        const { [category.value]: _removed, ...rest } = budgets;
+        await setDoc(
+          doc(db, "budgets", uid),
+          { userId: uid, categories: rest, updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+      }
+    },
+    [countCategoryUsage, archivedCategories, saveArchived, budgets, uid]
+  );
+
   const value = useMemo(
     () => ({
       transactions,
@@ -225,11 +353,17 @@ export const TransactionsProvider = ({ children }) => {
       goToNextMonth,
       goToCurrentMonth,
       customCategories,
+      archivedCategories,
       budgets,
       addTransaction,
       updateTransaction,
       deleteTransaction,
       addCustomCategory,
+      updateCustomCategory,
+      archiveCategory,
+      unarchiveCategory,
+      deleteCustomCategory,
+      countCategoryUsage,
     }),
     [
       transactions,
@@ -242,11 +376,17 @@ export const TransactionsProvider = ({ children }) => {
       goToNextMonth,
       goToCurrentMonth,
       customCategories,
+      archivedCategories,
       budgets,
       addTransaction,
       updateTransaction,
       deleteTransaction,
       addCustomCategory,
+      updateCustomCategory,
+      archiveCategory,
+      unarchiveCategory,
+      deleteCustomCategory,
+      countCategoryUsage,
     ]
   );
 

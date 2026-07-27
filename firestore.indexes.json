@@ -1,0 +1,33 @@
+{
+  "indexes": [
+    {
+      "comment": "StatsDashboard: rango de monthYear sobre las transacciones del usuario.",
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "monthYear", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "comment": "Provider: primer y último mes con transacciones (orderBy monthYear).",
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "monthYear", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "comment": "Bot /eliminar: última transacción del mes en curso.",
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "monthYear", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

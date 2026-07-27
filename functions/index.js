@@ -141,15 +141,28 @@ function getCategoryLabel(value, customLabels = {}) {
  * Devuelve null si no la reconoce: antes se usaba el texto crudo como categoría,
  * lo que creaba categorías fantasma que después aparecían en gris en la app.
  */
+/**
+ * Categorías que el usuario archivó desde la app.
+ * Vive en categoryPrefs/{uid} y aplica tanto a las por defecto como a las propias.
+ */
+async function getArchivedCategories(firebaseUid) {
+  const snap = await db.collection("categoryPrefs").doc(firebaseUid).get();
+  return new Set(snap.exists ? snap.data().archived || [] : []);
+}
+
 async function resolveCategory(input, firebaseUid) {
   const normalized = input.toLowerCase().trim();
 
+  // Las categorías archivadas desde la app tampoco se aceptan por el bot,
+  // para que ambos lados ofrezcan exactamente lo mismo.
+  const archived = await getArchivedCategories(firebaseUid);
+
   const aliased = CATEGORY_ALIASES[normalized];
-  if (aliased) {
+  if (aliased && !archived.has(aliased)) {
     return { category: aliased, type: CATEGORY_TYPE_MAP[aliased] || "expense" };
   }
 
-  if (KNOWN_CATEGORY_VALUES.has(normalized)) {
+  if (KNOWN_CATEGORY_VALUES.has(normalized) && !archived.has(normalized)) {
     return { category: normalized, type: CATEGORY_TYPE_MAP[normalized] || "expense" };
   }
 
@@ -157,6 +170,7 @@ async function resolveCategory(input, firebaseUid) {
   let match = null;
   snap.forEach((doc) => {
     const d = doc.data();
+    if (archived.has(d.value)) return;
     if (d.label.toLowerCase() === normalized || d.value.toLowerCase() === normalized) {
       match = { category: d.value, type: d.type || "expense" };
     }
@@ -370,17 +384,24 @@ async function getCustomCategoryLabels(firebaseUid) {
 }
 
 async function handleCategorias(chatId, firebaseUid) {
-  const snap = await db.collection("customCategories").where("userId", "==", firebaseUid).get();
+  const [snap, archived] = await Promise.all([
+    db.collection("customCategories").where("userId", "==", firebaseUid).get(),
+    getArchivedCategories(firebaseUid),
+  ]);
+
   const custom = { expense: [], income: [], savings: [] };
   snap.forEach((d) => {
     const data = d.data();
-    if (custom[data.type]) custom[data.type].push(data.label);
+    if (custom[data.type] && !archived.has(data.value)) custom[data.type].push(data.label);
   });
 
   // La lista sale del archivo compartido con la app: antes estaba escrita a mano
   // acá y se desactualizaba en cuanto se tocaba categories.js.
+  // Se omiten las archivadas para que el bot ofrezca lo mismo que la app.
   const section = (emoji, title, defaults, extra) => {
-    const lines = defaults.map((c) => `• ${escapeHtml(c.label)}`);
+    const lines = defaults
+      .filter((c) => !archived.has(c.value))
+      .map((c) => `• ${escapeHtml(c.label)}`);
     extra.forEach((label) => lines.push(`• <i>${escapeHtml(label)} (custom)</i>`));
     return `<b>${emoji} ${title}:</b>\n${lines.join("\n")}`;
   };

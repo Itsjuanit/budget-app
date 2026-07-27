@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getCategoriesForType } from "@/utils/categories";
+import { getCategoriesForType, getCategoryGroup } from "@/utils/categories";
 
 const sumAmounts = (items) => items.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
@@ -17,6 +17,27 @@ const groupByCategory = (transactions, type, customCategories) =>
     }))
     .filter((entry) => entry.amount > 0)
     .sort((a, b) => b.amount - a.amount);
+
+/**
+ * Agrupa transacciones por el grupo ("paraguas") de su categoría.
+ *
+ * El grupo sale de la definición de la categoría, no de la transacción, así que
+ * esto funciona sobre los datos que ya existen: no hizo falta migrar nada.
+ */
+const groupByCategoryGroup = (transactions, customCategories) => {
+  const totals = new Map();
+
+  transactions.forEach((t) => {
+    const group = getCategoryGroup(t.category, customCategories);
+    const current = totals.get(group.value);
+    const amount = Number(t.amount) || 0;
+
+    if (current) current.amount += amount;
+    else totals.set(group.value, { ...group, category: group.label, amount });
+  });
+
+  return [...totals.values()].filter((g) => g.amount > 0).sort((a, b) => b.amount - a.amount);
+};
 
 /**
  * Totales del mes derivados de las transacciones.
@@ -42,6 +63,7 @@ export const useMonthlyTotals = (transactions, customCategories) =>
       available: totalIncome - totalExpenses - totalSavings,
       savingsPercentage: totalIncome > 0 ? Math.round((totalSavings / totalIncome) * 100) : 0,
       expensesByCategory: groupByCategory(expenses, "expense", customCategories),
+      expensesByGroup: groupByCategoryGroup(expenses, customCategories),
       savingsByCategory: groupByCategory(savings, "savings", customCategories),
     };
   }, [transactions, customCategories]);

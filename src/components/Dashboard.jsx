@@ -124,7 +124,10 @@ export const Dashboard = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <ExpensesChart expensesByCategory={totals.expensesByCategory} />
+        <ExpensesChart
+          expensesByCategory={totals.expensesByCategory}
+          expensesByGroup={totals.expensesByGroup}
+        />
         <TransactionsPanel
           transactions={transactions}
           customCategories={customCategories}

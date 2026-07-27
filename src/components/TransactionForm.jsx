@@ -11,11 +11,13 @@ import { useTransactions } from "@/context/TransactionsProvider";
 import {
   findDuplicateCategory,
   getCategoriesForType,
+  getGroupOptions,
   pickColorForNewCategory,
 } from "@/utils/categories";
 import { fetchDolarRate, convertUsdToArs, dolarTypeOptions } from "@/utils/dolarService";
 import { toMonthKey } from "@/utils/months";
 import { toSlug } from "@/utils/slug";
+import { CategoryManager } from "./CategoryManager";
 
 const TYPE_OPTIONS = [
   { label: "Ingreso", value: "income" },
@@ -28,7 +30,8 @@ const TYPE_LABELS = { income: "ingreso", savings: "ahorro", expense: "gasto" };
 const MAX_DATE = new Date(new Date().getFullYear(), new Date().getMonth() + 3, 0);
 
 export const TransactionForm = () => {
-  const { addTransaction, addCustomCategory, customCategories } = useTransactions();
+  const { addTransaction, addCustomCategory, customCategories, archivedCategories } =
+    useTransactions();
 
   const [type, setType] = useState("expense");
   const [amount, setAmount] = useState(null);
@@ -40,7 +43,9 @@ export const TransactionForm = () => {
   const [saving, setSaving] = useState(false);
 
   const [showNewCatDialog, setShowNewCatDialog] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+  const [newCatGroup, setNewCatGroup] = useState(null);
   const [creatingCategory, setCreatingCategory] = useState(false);
 
   const [usdMode, setUsdMode] = useState(false);
@@ -89,10 +94,10 @@ export const TransactionForm = () => {
     };
   }, [usdMode, dolarType]);
 
-  const categoryOptions = getCategoriesForType(type, customCategories).map((c) => ({
-    label: c.label,
-    value: c.value,
-  }));
+  // Las archivadas no se ofrecen al cargar movimientos nuevos.
+  const categoryOptions = getCategoriesForType(type, customCategories, archivedCategories).map(
+    (c) => ({ label: c.label, value: c.value })
+  );
 
   const isCreditCard = category === "tarjeta-credito";
 
@@ -188,11 +193,14 @@ export const TransactionForm = () => {
         type,
         label,
         value,
+        // El grupo sólo aplica a gastos: es donde sirve juntar el análisis.
+        group: type === "expense" ? newCatGroup : null,
         color: pickColorForNewCategory(type, customCategories),
       });
       // El listener del provider trae la categoría nueva; acá sólo se la deja seleccionada.
       setCategory(value);
       setNewCatName("");
+      setNewCatGroup(null);
       setShowNewCatDialog(false);
       toast.current?.show({
         severity: "success",
@@ -353,6 +361,16 @@ export const TransactionForm = () => {
                 aria-label="Crear categoría"
                 onClick={() => setShowNewCatDialog(true)}
               />
+              <Button
+                type="button"
+                icon="pi pi-cog"
+                className="p-button-outlined p-button-sm flex-shrink-0"
+                severity="secondary"
+                tooltip="Gestionar categorías"
+                tooltipOptions={{ position: "top" }}
+                aria-label="Gestionar categorías"
+                onClick={() => setShowCategoryManager(true)}
+              />
             </div>
             {errors.category && <Message severity="error" text={errors.category} />}
           </div>
@@ -477,8 +495,31 @@ export const TransactionForm = () => {
               <span className="font-medium text-muted">{TYPE_LABELS[type]}</span>
             </p>
           )}
+
+          {/* Los grupos sólo tienen sentido en gastos, que es donde hay muchas categorías. */}
+          {type === "expense" && (
+            <div className="flex flex-col gap-2 pt-1">
+              <label className="text-sm font-medium text-muted" htmlFor="new-cat-group">
+                Grupo <span className="text-subtle font-normal">(opcional)</span>
+              </label>
+              <Dropdown
+                inputId="new-cat-group"
+                value={newCatGroup}
+                options={getGroupOptions()}
+                onChange={(e) => setNewCatGroup(e.value)}
+                className="w-full"
+                placeholder="Sin agrupar"
+              />
+              <p className="text-xs text-subtle">
+                Sirve para juntarla con otras en los gráficos. Ej: Spotify y Netflix bajo
+                Suscripciones.
+              </p>
+            </div>
+          )}
         </div>
       </Dialog>
+
+      <CategoryManager visible={showCategoryManager} onHide={() => setShowCategoryManager(false)} />
     </>
   );
 };

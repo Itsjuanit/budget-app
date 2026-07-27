@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// Modelo: cada documento pertenece a un usuario y sólo él puede leerlo o escribirlo.
+//
+// En las colecciones que guardan el dueño como campo (transactions,
+// customCategories) el update valida las dos puntas:
+//   - resource.data.userId          → el documento ya es tuyo
+//   - request.resource.data.userId  → sigue siendo tuyo después de editarlo
+// Sin la segunda, alguien podía reasignar un documento propio al uid de otra
+// persona y ensuciarle la cuenta.
+//
+// Las Cloud Functions usan el Admin SDK, que no pasa por estas reglas: por eso
+// telegramUsers y telegramPending no aparecen acá (nadie desde el navegador
+// debería tocarlas, y la regla final las bloquea).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Reglas para la colección "transactions"
+    match /transactions/{transactionId} {
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.userId
+                    && request.auth.uid == request.resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    // Reglas para la colección "customCategories"
+    match /customCategories/{categoryId} {
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.userId
+                    && request.auth.uid == request.resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    // Reglas para la colección "budgets"
+    // Acá el id del documento es el uid, así que no hace falta validar el campo.
+    match /budgets/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Preferencias de categorías: qué categorías archivó el usuario.
+    // Mismo patrón que "budgets": el id del documento es el uid.
+    match /categoryPrefs/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Bloquear acceso a cualquier otro documento
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

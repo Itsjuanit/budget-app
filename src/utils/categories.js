@@ -12,6 +12,17 @@ export const categories = {
   expense: assignColorsToCategories(categoryData.expense),
 };
 
+/**
+ * Grupos ("paraguas") para agrupar categorías en el análisis.
+ * El grupo vive en la definición de la categoría, no en la transacción: Spotify
+ * siempre pertenece a Suscripciones, así que guardarlo en cada movimiento sería
+ * repetir el mismo dato miles de veces (y obligaría a migrar el historial).
+ */
+export const groups = categoryData.groups;
+
+/** Grupo virtual para las categorías que no pertenecen a ninguno. */
+export const UNGROUPED = { value: "sin-grupo", label: "Sin agrupar", color: "#94a3b8" };
+
 export const TRANSACTION_TYPES = ["income", "expense", "savings"];
 
 /** Forma vacía de las categorías personalizadas — evita repetir el literal por todos lados. */
@@ -26,65 +37,106 @@ const collator = new Intl.Collator("es", { sensitivity: "base", numeric: true })
 
 const byLabel = (a, b) => collator.compare(a.label, b.label);
 
+/** Todas las categorías de un tipo, incluidas las archivadas, sin ordenar. */
+const rawCategoriesForType = (type, customCategories = EMPTY_CUSTOM_CATEGORIES) => [
+  ...(categories[type] || []),
+  ...(customCategories?.[type] || []),
+];
+
 /**
- * Categorías por defecto de un tipo más las personalizadas del usuario,
- * ordenadas alfabéticamente en conjunto.
- *
- * Antes las personalizadas se concatenaban al final, así que una categoría
- * nueva que empezara con "A" aparecía después de "YouTube Premium".
+ * Categorías de un tipo listas para elegir: por defecto + personalizadas,
+ * ordenadas alfabéticamente en conjunto y sin las archivadas.
  *
  * @param {"income"|"expense"|"savings"} type
- * @param {{income: Array, expense: Array, savings: Array}} customCategories
+ * @param {object} customCategories
+ * @param {Set<string>|Array<string>} archived identificadores archivados
  */
-export const getCategoriesForType = (type, customCategories = EMPTY_CUSTOM_CATEGORIES) =>
-  [...(categories[type] || []), ...(customCategories?.[type] || [])].sort(byLabel);
+export const getCategoriesForType = (
+  type,
+  customCategories = EMPTY_CUSTOM_CATEGORIES,
+  archived = null
+) => {
+  const hidden = archived instanceof Set ? archived : new Set(archived || []);
+  return rawCategoriesForType(type, customCategories)
+    .filter((c) => !hidden.has(c.value))
+    .sort(byLabel);
+};
 
 /**
- * Lista plana de todas las categorías, sin ordenar.
+ * Todas las categorías de todos los tipos, incluidas las archivadas y sin ordenar.
  *
- * Es sólo para buscar por `value`, y se llama una vez por celda al pintar las
- * tablas: ordenarla acá sería pagar el costo del colador miles de veces sin que
- * el orden se vea en ningún lado.
+ * Las búsquedas por `value` usan esta versión: se llaman una vez por celda al
+ * pintar las tablas (ordenar ahí sería pagar el colador miles de veces), y deben
+ * seguir resolviendo las archivadas para que el historial no muestre el
+ * identificador crudo.
  */
-const getAllCategoriesUnsorted = (customCategories = EMPTY_CUSTOM_CATEGORIES) =>
-  TRANSACTION_TYPES.flatMap((type) => [
-    ...(categories[type] || []),
-    ...(customCategories?.[type] || []),
-  ]);
+const allCategoriesRaw = (customCategories = EMPTY_CUSTOM_CATEGORIES) =>
+  TRANSACTION_TYPES.flatMap((type) => rawCategoriesForType(type, customCategories));
 
-/** Lista plana de todas las categorías (default + personalizadas), ordenada. */
-export const getAllCategories = (customCategories = EMPTY_CUSTOM_CATEGORIES) =>
-  getAllCategoriesUnsorted(customCategories).sort(byLabel);
+/** Lista plana de todas las categorías activas, ordenada. */
+export const getAllCategories = (customCategories = EMPTY_CUSTOM_CATEGORIES, archived = null) => {
+  const hidden = archived instanceof Set ? archived : new Set(archived || []);
+  return allCategoriesRaw(customCategories)
+    .filter((c) => !hidden.has(c.value))
+    .sort(byLabel);
+};
+
+/** Busca la definición de una categoría por su identificador, esté archivada o no. */
+export const findCategory = (value, customCategories = EMPTY_CUSTOM_CATEGORIES) =>
+  allCategoriesRaw(customCategories).find((c) => c.value === value) || null;
 
 /**
  * Label legible de una categoría. Si no la encuentra devuelve el value crudo
  * en vez de quedar vacío.
  */
 export const getCategoryLabel = (value, customCategories = EMPTY_CUSTOM_CATEGORIES) =>
-  getAllCategoriesUnsorted(customCategories).find((c) => c.value === value)?.label || value;
+  findCategory(value, customCategories)?.label || value;
 
 /** Color de una categoría, con un gris neutro como fallback. */
 export const getCategoryColor = (value, customCategories = EMPTY_CUSTOM_CATEGORIES) =>
-  getAllCategoriesUnsorted(customCategories).find((c) => c.value === value)?.color || "#94a3b8";
+  findCategory(value, customCategories)?.color || "#94a3b8";
+
+/**
+ * Grupo al que pertenece una categoría, ya resuelto a {value, label, color}.
+ * Las categorías sin grupo caen en el grupo virtual "Sin agrupar".
+ */
+export const getCategoryGroup = (value, customCategories = EMPTY_CUSTOM_CATEGORIES) => {
+  const groupValue = findCategory(value, customCategories)?.group;
+  const group = groupValue && groups[groupValue];
+  return group ? { value: groupValue, ...group } : UNGROUPED;
+};
+
+/** Opciones de grupo para un desplegable, ordenadas y con la opción "sin grupo". */
+export const getGroupOptions = () => [
+  { label: "Sin agrupar", value: null },
+  ...Object.entries(groups)
+    .map(([value, { label }]) => ({ label, value }))
+    .sort(byLabel),
+];
 
 /**
  * Busca una categoría ya existente del mismo tipo que choque con el nombre dado.
  *
  * Compara por slug, así que ignora mayúsculas, acentos, espacios de más y
  * signos: "Gimnasio", "gimnasio" y "GIMNASIO " se consideran la misma.
- * Devuelve la categoría encontrada (para poder nombrarla en el mensaje) o null.
+ * Incluye las archivadas: reutilizar su nombre crearía dos categorías con el
+ * mismo identificador. Devuelve la categoría encontrada o null.
  */
 export const findDuplicateCategory = (label, type, customCategories = EMPTY_CUSTOM_CATEGORIES) => {
   const slug = toSlug(label);
   if (!slug) return null;
-  return getCategoriesForType(type, customCategories).find((c) => c.value === slug) || null;
+  return rawCategoriesForType(type, customCategories).find((c) => c.value === slug) || null;
 };
+
+/** True si la categoría viene con la app (no se puede borrar, sólo archivar). */
+export const isDefaultCategory = (value) =>
+  TRANSACTION_TYPES.some((type) => categories[type].some((c) => c.value === value));
 
 /**
  * Asigna un color de la paleta a una categoría nueva, en base a cuántas
  * existen ya de ese tipo, para que no se repitan.
  */
 export const pickColorForNewCategory = (type, customCategories = EMPTY_CUSTOM_CATEGORIES) => {
-  const existing = getCategoriesForType(type, customCategories).length;
+  const existing = rawCategoriesForType(type, customCategories).length;
   return CATEGORY_PALETTE[existing % CATEGORY_PALETTE.length];
 };

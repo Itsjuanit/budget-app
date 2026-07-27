@@ -12,7 +12,7 @@ import { getCategoriesForType } from "@/utils/categories";
 export const BudgetConfig = ({ visible, onHide }) => {
   const { user } = useAuth();
   // budgets ya llega del provider en tiempo real: no hace falta releer el doc al abrir.
-  const { budgets: savedBudgets, customCategories } = useTransactions();
+  const { budgets: savedBudgets, customCategories, archivedCategories } = useTransactions();
 
   const [draft, setDraft] = useState({});
   const [saving, setSaving] = useState(false);
@@ -23,9 +23,9 @@ export const BudgetConfig = ({ visible, onHide }) => {
     if (visible) setDraft(savedBudgets);
   }, [visible, savedBudgets]);
 
-  // Ahora incluye las categorías personalizadas: antes sólo se podían presupuestar
-  // las categorías por defecto.
-  const expenseCategories = getCategoriesForType("expense", customCategories);
+  // Incluye las personalizadas (antes sólo se podían presupuestar las por defecto)
+  // y excluye las archivadas, que ya no se usan para cargar movimientos.
+  const expenseCategories = getCategoriesForType("expense", customCategories, archivedCategories);
 
   const handleChange = (categoryValue, amount) => {
     setDraft((prev) => ({ ...prev, [categoryValue]: amount || 0 }));

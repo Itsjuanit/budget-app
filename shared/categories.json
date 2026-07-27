@@ -1,39 +1,188 @@
 {
+  "groups": {
+    "suscripciones": {
+      "label": "Suscripciones",
+      "color": "#F472B6"
+    },
+    "hogar": {
+      "label": "Hogar y servicios",
+      "color": "#60A5FA"
+    },
+    "comida": {
+      "label": "Comida",
+      "color": "#FB923C"
+    },
+    "transporte": {
+      "label": "Transporte",
+      "color": "#2DD4BF"
+    },
+    "personal": {
+      "label": "Personal",
+      "color": "#A78BFA"
+    },
+    "finanzas": {
+      "label": "Finanzas",
+      "color": "#FBBF24"
+    },
+    "compras": {
+      "label": "Compras",
+      "color": "#E879F9"
+    },
+    "otros": {
+      "label": "Otros",
+      "color": "#94A3B8"
+    }
+  },
   "income": [
-    { "label": "Freelance", "value": "freelance" },
-    { "label": "Otros ingresos", "value": "otros-ingresos" },
-    { "label": "Salario", "value": "salario" }
+    {
+      "label": "Freelance",
+      "value": "freelance"
+    },
+    {
+      "label": "Otros ingresos",
+      "value": "otros-ingresos"
+    },
+    {
+      "label": "Salario",
+      "value": "salario"
+    }
   ],
   "savings": [
-    { "label": "Ahorros", "value": "ahorros" },
-    { "label": "Inversiones", "value": "inversiones" }
+    {
+      "label": "Ahorros",
+      "value": "ahorros"
+    },
+    {
+      "label": "Inversiones",
+      "value": "inversiones"
+    }
   ],
   "expense": [
-    { "label": "Actividad física", "value": "actividad-fisica" },
-    { "label": "Alquiler", "value": "alquiler" },
-    { "label": "Celulares", "value": "celulares" },
-    { "label": "Círculo", "value": "circulo" },
-    { "label": "Combustible", "value": "combustible" },
-    { "label": "Comida", "value": "comida" },
-    { "label": "Compras", "value": "compras" },
-    { "label": "Dibujo", "value": "dibujo" },
-    { "label": "Disney+", "value": "disney-plus" },
-    { "label": "Educación", "value": "educacion" },
-    { "label": "Hobbies", "value": "hobbies" },
-    { "label": "Internet", "value": "internet" },
-    { "label": "Netflix", "value": "netflix" },
-    { "label": "Otros gastos", "value": "otros-gastos" },
-    { "label": "Préstamos", "value": "prestamos" },
-    { "label": "Regalos", "value": "regalos" },
-    { "label": "Salidas", "value": "salidas" },
-    { "label": "Salud", "value": "salud" },
-    { "label": "Servicios (Luz, Gas, Agua)", "value": "servicios" },
-    { "label": "Spotify", "value": "spotify" },
-    { "label": "Supermercado", "value": "supermercado" },
-    { "label": "Tarjeta de crédito", "value": "tarjeta-credito" },
-    { "label": "Transferencias", "value": "transferencias" },
-    { "label": "Transporte", "value": "transporte" },
-    { "label": "YouTube Premium", "value": "youtube-premium" }
+    {
+      "label": "Actividad física",
+      "value": "actividad-fisica",
+      "group": "personal"
+    },
+    {
+      "label": "Alquiler",
+      "value": "alquiler",
+      "group": "hogar"
+    },
+    {
+      "label": "Celulares",
+      "value": "celulares",
+      "group": "hogar"
+    },
+    {
+      "label": "Círculo",
+      "value": "circulo",
+      "group": "finanzas"
+    },
+    {
+      "label": "Combustible",
+      "value": "combustible",
+      "group": "transporte"
+    },
+    {
+      "label": "Comida",
+      "value": "comida",
+      "group": "comida"
+    },
+    {
+      "label": "Compras",
+      "value": "compras",
+      "group": "compras"
+    },
+    {
+      "label": "Dibujo",
+      "value": "dibujo",
+      "group": "personal"
+    },
+    {
+      "label": "Disney+",
+      "value": "disney-plus",
+      "group": "suscripciones"
+    },
+    {
+      "label": "Educación",
+      "value": "educacion",
+      "group": "personal"
+    },
+    {
+      "label": "Hobbies",
+      "value": "hobbies",
+      "group": "personal"
+    },
+    {
+      "label": "Internet",
+      "value": "internet",
+      "group": "hogar"
+    },
+    {
+      "label": "Netflix",
+      "value": "netflix",
+      "group": "suscripciones"
+    },
+    {
+      "label": "Otros gastos",
+      "value": "otros-gastos",
+      "group": "otros"
+    },
+    {
+      "label": "Préstamos",
+      "value": "prestamos",
+      "group": "finanzas"
+    },
+    {
+      "label": "Regalos",
+      "value": "regalos",
+      "group": "compras"
+    },
+    {
+      "label": "Salidas",
+      "value": "salidas",
+      "group": "comida"
+    },
+    {
+      "label": "Salud",
+      "value": "salud",
+      "group": "personal"
+    },
+    {
+      "label": "Servicios (Luz, Gas, Agua)",
+      "value": "servicios",
+      "group": "hogar"
+    },
+    {
+      "label": "Spotify",
+      "value": "spotify",
+      "group": "suscripciones"
+    },
+    {
+      "label": "Supermercado",
+      "value": "supermercado",
+      "group": "comida"
+    },
+    {
+      "label": "Tarjeta de crédito",
+      "value": "tarjeta-credito",
+      "group": "finanzas"
+    },
+    {
+      "label": "Transferencias",
+      "value": "transferencias",
+      "group": "finanzas"
+    },
+    {
+      "label": "Transporte",
+      "value": "transporte",
+      "group": "transporte"
+    },
+    {
+      "label": "YouTube Premium",
+      "value": "youtube-premium",
+      "group": "suscripciones"
+    }
   ],
   "aliases": {
     "super": "supermercado",
