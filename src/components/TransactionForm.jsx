@@ -8,7 +8,11 @@ import { Message } from "primereact/message";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { useTransactions } from "@/context/TransactionsProvider";
-import { getCategoriesForType, pickColorForNewCategory } from "@/utils/categories";
+import {
+  findDuplicateCategory,
+  getCategoriesForType,
+  pickColorForNewCategory,
+} from "@/utils/categories";
 import { fetchDolarRate, convertUsdToArs, dolarTypeOptions } from "@/utils/dolarService";
 import { toMonthKey } from "@/utils/months";
 import { toSlug } from "@/utils/slug";
@@ -92,6 +96,9 @@ export const TransactionForm = () => {
 
   const isCreditCard = category === "tarjeta-credito";
 
+  // Se recalcula mientras escribís para avisar antes de que toques Guardar.
+  const duplicateCategory = findDuplicateCategory(newCatName, type, customCategories);
+
   const exitUsdMode = () => {
     setUsdMode(false);
     setUsdAmount(null);
@@ -163,11 +170,13 @@ export const TransactionForm = () => {
 
     const value = toSlug(label);
 
-    if (getCategoriesForType(type, customCategories).some((c) => c.value === value)) {
+    // Se vuelve a chequear al guardar, además del aviso en vivo: entre que abriste
+    // el diálogo y guardaste, la categoría pudo crearse desde otro dispositivo.
+    if (duplicateCategory) {
       toast.current?.show({
         severity: "warn",
         summary: "Ya existe",
-        detail: "Ya tenés una categoría con ese nombre.",
+        detail: `Ya tenés una categoría llamada «${duplicateCategory.label}».`,
         life: 3000,
       });
       return;
@@ -436,7 +445,7 @@ export const TransactionForm = () => {
               severity="success"
               onClick={handleSaveNewCategory}
               loading={creatingCategory}
-              disabled={!newCatName.trim()}
+              disabled={!newCatName.trim() || Boolean(duplicateCategory)}
             />
           </div>
         }
@@ -449,14 +458,25 @@ export const TransactionForm = () => {
             id="new-cat-name"
             value={newCatName}
             onChange={(e) => setNewCatName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSaveNewCategory();
+            }}
             placeholder="Ej: Mascota, Gimnasio..."
             className="w-full"
             autoFocus
+            aria-invalid={Boolean(duplicateCategory)}
           />
-          <p className="text-xs text-subtle">
-            Se creará como categoría de{" "}
-            <span className="font-medium text-muted">{TYPE_LABELS[type]}</span>
-          </p>
+          {duplicateCategory ? (
+            <Message
+              severity="warn"
+              text={`Ya existe la categoría «${duplicateCategory.label}».`}
+            />
+          ) : (
+            <p className="text-xs text-subtle">
+              Se creará como categoría de{" "}
+              <span className="font-medium text-muted">{TYPE_LABELS[type]}</span>
+            </p>
+          )}
         </div>
       </Dialog>
     </>
