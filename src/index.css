@@ -126,6 +126,19 @@ body {
     color 0.2s ease;
 }
 
+/* Tailwind corre con preflight desactivado (para no pisar los estilos de
+   PrimeReact), así que un <button> sin clases hereda el chrome del navegador:
+   fondo gris y borde. En el tema oscuro pasaba desapercibido, en el claro se
+   veía como una caja gris. Esta clase lo deja como texto puro. */
+.btn-plain {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+
 /* ===== Card override ===== */
 .card {
   background: var(--surface);

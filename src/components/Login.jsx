@@ -158,7 +158,7 @@ export const Login = () => {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-xs text-brand hover:text-brand-hover transition-colors"
+                  className="btn-plain text-xs text-brand hover:text-brand-hover transition-colors"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>

@@ -8,19 +8,22 @@ const TYPE_CONFIG = {
     label: "Ingreso",
     severity: "success",
     sign: "+",
-    amountClass: "text-emerald-400",
+    amountClass: "text-income",
+    dotClass: "bg-income",
   },
   savings: {
     label: "Ahorro",
     severity: "info",
     sign: "",
-    amountClass: "text-blue-400",
+    amountClass: "text-savings",
+    dotClass: "bg-savings",
   },
   expense: {
     label: "Gasto",
     severity: "danger",
     sign: "-",
-    amountClass: "text-red-400",
+    amountClass: "text-expense",
+    dotClass: "bg-expense",
   },
 };
 

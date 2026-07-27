@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "primereact/button";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
-import { Paginator } from "primereact/paginator";
+import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
 import { format } from "date-fns";
 import { formatCurrency } from "@/utils/format";
@@ -17,6 +17,9 @@ const TYPE_FILTER_OPTIONS = [
   { label: "Ahorro", value: "savings" },
   { label: "Gasto", value: "expense" },
 ];
+
+/** Cuántas tarjetas se muestran por página en mobile. */
+const MOBILE_PAGE_SIZE = 10;
 
 const useIsMobile = (breakpoint = 768) => {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
@@ -43,8 +46,13 @@ export const TransactionsPanel = ({ transactions, customCategories, onEdit, onDe
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState(null);
   const [filterText, setFilterText] = useState("");
-  const [first, setFirst] = useState(0);
-  const [rows, setRows] = useState(10);
+  const [page, setPage] = useState(0);
+
+  // Menú de acciones de las tarjetas: uno solo para toda la lista, apuntando a
+  // la transacción del botón que se tocó. La referencia evita que el menú abra
+  // con la transacción anterior por el batching de React.
+  const menuRef = useRef(null);
+  const menuTargetRef = useRef(null);
 
   const filteredTransactions = useMemo(() => {
     const search = filterText.trim().toLowerCase();
@@ -57,10 +65,33 @@ export const TransactionsPanel = ({ transactions, customCategories, onEdit, onDe
 
   const hasActiveFilters = Boolean(filterType || filterText);
 
+  // Si un filtro deja menos páginas de las que había, se vuelve a la última válida
+  // en vez de quedar en una página vacía.
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / MOBILE_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages - 1);
+
   const clearFilters = () => {
     setFilterType(null);
     setFilterText("");
-    setFirst(0);
+    setPage(0);
+  };
+
+  const menuItems = [
+    {
+      label: "Editar",
+      icon: "pi pi-pencil",
+      command: () => onEdit(menuTargetRef.current),
+    },
+    {
+      label: "Eliminar",
+      icon: "pi pi-trash",
+      command: () => onDelete(menuTargetRef.current),
+    },
+  ];
+
+  const openMenu = (event, transaction) => {
+    menuTargetRef.current = transaction;
+    menuRef.current?.toggle(event);
   };
 
   const renderAmount = (transaction) => {
@@ -73,11 +104,11 @@ export const TransactionsPanel = ({ transactions, customCategories, onEdit, onDe
     );
   };
 
-  const renderActions = (transaction, size = "p-button-sm") => (
+  const renderActions = (transaction) => (
     <div className="flex gap-1">
       <Button
         icon="pi pi-pencil"
-        className={`p-button-rounded p-button-text ${size}`}
+        className="p-button-rounded p-button-text p-button-sm"
         tooltip="Editar"
         tooltipOptions={{ position: "top" }}
         aria-label="Editar transacción"
@@ -85,7 +116,7 @@ export const TransactionsPanel = ({ transactions, customCategories, onEdit, onDe
       />
       <Button
         icon="pi pi-trash"
-        className={`p-button-rounded p-button-text ${size}`}
+        className="p-button-rounded p-button-text p-button-sm"
         tooltip="Eliminar"
         tooltipOptions={{ position: "top" }}
         aria-label="Eliminar transacción"
@@ -95,42 +126,91 @@ export const TransactionsPanel = ({ transactions, customCategories, onEdit, onDe
     </div>
   );
 
-  const renderCards = () => (
-    <div className="flex flex-col gap-3">
-      {filteredTransactions.slice(first, first + rows).map((transaction) => {
-        const config = getTypeConfig(transaction.type);
-        return (
-          <div key={transaction.id} className="rounded-lg border border-border bg-surface p-4">
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-strong font-medium text-sm">{transaction.description}</p>
-                  <Tag value={config.label} severity={config.severity} className="text-xs" />
+  const renderCards = () => {
+    const start = currentPage * MOBILE_PAGE_SIZE;
+    const visible = filteredTransactions.slice(start, start + MOBILE_PAGE_SIZE);
+
+    return (
+      <div className="flex flex-col gap-2">
+        <Menu model={menuItems} popup ref={menuRef} />
+
+        {visible.map((transaction) => {
+          const config = getTypeConfig(transaction.type);
+          return (
+            <div
+              key={transaction.id}
+              className="rounded-lg border border-border bg-surface px-3 py-2.5"
+            >
+              {/* Punto, descripción y monto centrados en la misma línea.
+                  El grupo de la izquierda toma el espacio sobrante (flex-1) y el
+                  monto nunca se encoge, así una descripción larga se recorta con
+                  puntos suspensivos en vez de empujar el renglón. */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${config.dotClass}`}
+                    aria-hidden="true"
+                  />
+                  <p
+                    className="text-strong font-medium text-sm truncate"
+                    title={transaction.description}
+                  >
+                    {transaction.description}
+                  </p>
                 </div>
-                <p className="text-muted text-xs">
-                  {formatDate(transaction.date)} ·{" "}
-                  {getCategoryLabel(transaction.category, customCategories)}
-                </p>
+                <span
+                  className={`text-sm font-bold whitespace-nowrap flex-shrink-0 ${config.amountClass}`}
+                >
+                  {config.sign}
+                  {formatCurrency(transaction.amount)}
+                </span>
               </div>
-              {renderAmount(transaction)}
+
+              {/* Metadatos y acciones comparten renglón: antes los botones se
+                  llevaban una fila entera casi vacía. */}
+              <div className="flex items-center justify-between gap-3 pl-4">
+                <p className="text-muted text-xs truncate">
+                  {formatDate(transaction.date)} ·{" "}
+                  {getCategoryLabel(transaction.category, customCategories)} · {config.label}
+                </p>
+                <Button
+                  icon="pi pi-ellipsis-v"
+                  className="p-button-rounded p-button-text p-button-sm flex-shrink-0"
+                  aria-label={`Acciones de ${transaction.description}`}
+                  aria-haspopup
+                  onClick={(e) => openMenu(e, transaction)}
+                />
+              </div>
             </div>
-            <div className="flex gap-2 justify-end">{renderActions(transaction)}</div>
+          );
+        })}
+
+        {/* Paginador mínimo: el de PrimeReact no entra en pantallas angostas y
+            partía los botones en dos líneas. Se oculta si hay una sola página. */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 pt-2">
+            <Button
+              icon="pi pi-chevron-left"
+              className="p-button-rounded p-button-text p-button-sm"
+              aria-label="Página anterior"
+              disabled={currentPage === 0}
+              onClick={() => setPage(currentPage - 1)}
+            />
+            <span className="text-sm text-muted tabular-nums">
+              {currentPage + 1} de {totalPages}
+            </span>
+            <Button
+              icon="pi pi-chevron-right"
+              className="p-button-rounded p-button-text p-button-sm"
+              aria-label="Página siguiente"
+              disabled={currentPage >= totalPages - 1}
+              onClick={() => setPage(currentPage + 1)}
+            />
           </div>
-        );
-      })}
-      <Paginator
-        first={first}
-        rows={rows}
-        totalRecords={filteredTransactions.length}
-        rowsPerPageOptions={[5, 10, 20]}
-        onPageChange={(event) => {
-          setFirst(event.first);
-          setRows(event.rows);
-        }}
-        className="mt-2"
-      />
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   const renderTable = () => (
     <DataTable
@@ -227,7 +307,7 @@ export const TransactionsPanel = ({ transactions, customCategories, onEdit, onDe
                 value={filterText}
                 onChange={(e) => {
                   setFilterText(e.target.value);
-                  setFirst(0);
+                  setPage(0);
                 }}
                 placeholder="Buscar por descripción..."
                 className="w-full p-inputtext-sm"
@@ -244,7 +324,7 @@ export const TransactionsPanel = ({ transactions, customCategories, onEdit, onDe
               options={TYPE_FILTER_OPTIONS}
               onChange={(e) => {
                 setFilterType(e.value);
-                setFirst(0);
+                setPage(0);
               }}
               placeholder="Todos"
               className="w-full p-inputtext-sm"

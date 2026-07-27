@@ -106,7 +106,7 @@ const AuthActions = () => {
 
   return (
     <button
-      className="ml-2 text-sm text-expense hover:opacity-80 transition-opacity duration-200"
+      className="btn-plain ml-2 text-sm text-expense hover:opacity-80 transition-opacity duration-200"
       onClick={logout}
     >
       <i className="pi pi-sign-out mr-2"></i>

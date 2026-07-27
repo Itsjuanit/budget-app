@@ -274,7 +274,7 @@ export const TransactionForm = () => {
             {!usdMode && (
               <button
                 type="button"
-                className="text-xs text-brand hover:text-brand-hover text-left transition-colors"
+                className="btn-plain text-xs text-brand hover:text-brand-hover text-left transition-colors"
                 onClick={() => setUsdMode(true)}
               >
                 <i className="pi pi-dollar mr-1" style={{ fontSize: "0.65rem" }} />
@@ -287,7 +287,7 @@ export const TransactionForm = () => {
                   <span className="text-xs font-medium text-brand">Conversión USD → ARS</span>
                   <button
                     type="button"
-                    className="text-subtle hover:text-muted transition-colors"
+                    className="btn-plain text-subtle hover:text-muted transition-colors"
                     onClick={exitUsdMode}
                     aria-label="Cerrar conversión USD"
                   >
@@ -342,13 +342,15 @@ export const TransactionForm = () => {
             <label className="text-sm font-medium text-muted" htmlFor="new-category">
               Categoría
             </label>
-            <div className="flex gap-2">
+            {/* El Dropdown va con flex-1 y no w-full: pedir el 100% del ancho hacía
+                que los botones de al lado se salieran de la tarjeta. */}
+            <div className="flex gap-2 items-center">
               <Dropdown
                 inputId="new-category"
                 value={category}
                 options={categoryOptions}
                 onChange={(e) => setCategory(e.value)}
-                className="w-full"
+                className="flex-1 min-w-0"
                 placeholder="Selecciona una categoría"
               />
               <Button
