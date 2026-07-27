@@ -1,6 +1,9 @@
 const BASE_URL = "https://dolarapi.com/v1/dolares";
 
+// El orden define cómo se listan en el desplegable. El valor por defecto sigue
+// siendo "cripto" (ver fetchDolarRate y el estado inicial de TransactionForm).
 const DOLAR_TYPES = {
+  oficial: { label: "Dólar Oficial", endpoint: "oficial" },
   cripto: { label: "Dólar Cripto", endpoint: "cripto" },
   blue: { label: "Dólar Blue", endpoint: "blue" },
   bolsa: { label: "Dólar MEP", endpoint: "bolsa" },

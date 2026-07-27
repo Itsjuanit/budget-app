@@ -165,9 +165,18 @@ async function resolveCategory(input, firebaseUid) {
   return match;
 }
 
+// Lo que escribe el usuario → endpoint de DolarAPI. "mep" es un alias de "bolsa".
+const DOLAR_ENDPOINTS = {
+  oficial: "oficial",
+  cripto: "cripto",
+  blue: "blue",
+  mep: "bolsa",
+  tarjeta: "tarjeta",
+};
+const DOLAR_TYPES = Object.keys(DOLAR_ENDPOINTS);
+
 async function fetchDolarRate(type = "cripto") {
-  const endpoints = { cripto: "cripto", blue: "blue", mep: "bolsa", tarjeta: "tarjeta" };
-  const r = await fetch(`https://dolarapi.com/v1/dolares/${endpoints[type] || "cripto"}`);
+  const r = await fetch(`https://dolarapi.com/v1/dolares/${DOLAR_ENDPOINTS[type] || "cripto"}`);
   if (!r.ok) throw new Error("Error obteniendo cotización");
   const data = await r.json();
   return { venta: data.venta, nombre: type.charAt(0).toUpperCase() + type.slice(1) };
@@ -236,11 +245,10 @@ async function parseTransaction(text, firebaseUid) {
     const usdAmount = parseAmount(usdMatch[1]);
     if (usdAmount === null) return null;
 
-    const dolarTypes = ["cripto", "blue", "mep", "tarjeta"];
     let dolarType = "cripto";
     let catStart = 1;
 
-    if (parts.length >= 3 && dolarTypes.includes(parts[1].toLowerCase())) {
+    if (parts.length >= 3 && DOLAR_TYPES.includes(parts[1].toLowerCase())) {
       dolarType = parts[1].toLowerCase();
       catStart = 2;
     }
@@ -388,7 +396,7 @@ async function handleCategorias(chatId, firebaseUid) {
     "",
     "<b>Aliases:</b> super, nafta, gym, padel, uber, bondi, bar, luz, gas, agua",
     "",
-    "<b>💵 USD:</b> <code>100usd super</code> o <code>100usd tarjeta netflix</code>",
+    "<b>💵 USD:</b> <code>100usd super</code> o <code>100usd oficial super</code>",
   ].join("\n");
 
   await sendMessage(chatId, msg);
@@ -442,10 +450,10 @@ async function handleHelp(chatId) {
     chatId,
     `🤖 <b>PagaTodo Bot</b>\n\n` +
       `<b>⚡ Rápido (asume gasto):</b>\n<code>5000 super coto</code>\n<code>2000 nafta ypf</code>\n\n` +
-      `<b>💵 En USD:</b>\n<code>100usd super coto</code> (cripto)\n<code>100usd blue super coto</code>\n<code>50usd tarjeta netflix</code>\n\n` +
+      `<b>💵 En USD:</b>\n<code>100usd super coto</code> (cripto)\n<code>100usd oficial super coto</code>\n<code>50usd tarjeta netflix</code>\n\n` +
       `<b>📝 Explícito:</b>\n<code>/gasto 5000 super coto</code>\n<code>/ingreso 3000 salario mes</code>\n<code>/ahorro 1000 ahorros fondo</code>\n\n` +
       `<b>📊 Comandos:</b>\n/resumen — Resumen del mes\n/categorias — Ver categorías\n/eliminar — Eliminar última\n/vincular — Vincular cuenta\n/help — Esta ayuda\n\n` +
-      `<b>Dólares:</b> cripto (default), blue, mep, tarjeta`
+      `<b>Dólares:</b> cripto (default), oficial, blue, mep, tarjeta`
   );
 }
 
