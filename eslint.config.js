@@ -7,11 +7,13 @@ import prettier from "eslint-plugin-prettier";
 import prettierConfig from "eslint-config-prettier";
 
 export default [
-  { ignores: ["dist"] },
+  { ignores: ["dist", "functions/node_modules", "functions/categories.json"] },
+
+  // --- App (browser / React) ---
   {
-    files: ["**/*.{js,jsx}"],
+    files: ["src/**/*.{js,jsx}"],
     languageOptions: {
-      ecmaVersion: 2020,
+      ecmaVersion: 2022,
       globals: globals.browser,
       parserOptions: {
         ecmaVersion: "latest",
@@ -36,6 +38,40 @@ export default [
       "react/jsx-no-target-blank": "off",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "react/prop-types": "off",
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
+
+  // --- Cloud Functions (Node / CommonJS) ---
+  {
+    files: ["functions/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.node,
+      parserOptions: { sourceType: "commonjs" },
+    },
+    plugins: { prettier },
+    rules: {
+      ...js.configs.recommended.rules,
+      ...prettierConfig.rules,
+      "prettier/prettier": "warn",
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
+
+  // --- Configs de la raíz y scripts (Node / ESM) ---
+  {
+    files: ["*.config.js", "scripts/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.node,
+      parserOptions: { sourceType: "module" },
+    },
+    plugins: { prettier },
+    rules: {
+      ...js.configs.recommended.rules,
+      ...prettierConfig.rules,
+      "prettier/prettier": "warn",
     },
   },
 ];

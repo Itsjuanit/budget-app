@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from "firebase/firestore"; // Firestore
-import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth"; // Firebase Auth
+import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
+import { getFirestore } from "firebase/firestore";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 // Configuración de Firebase desde las variables de entorno
 const firebaseConfig = {
@@ -14,25 +14,36 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Inicializa Firebase
+const missingKeys = Object.entries(firebaseConfig)
+  .filter(([key, value]) => key !== "measurementId" && !value)
+  .map(([key]) => key);
+
+if (missingKeys.length > 0) {
+  console.error(
+    `Faltan variables de entorno de Firebase: ${missingKeys.join(", ")}. ` +
+      "Copiá .env.example a .env y completá los valores."
+  );
+}
+
 const app = initializeApp(firebaseConfig);
-
-// Inicializa Firestore
 const db = getFirestore(app);
-
-// Inicializa Analytics (opcional)
-const analytics = getAnalytics(app);
-
-// Inicializa Firebase Auth y configura la persistencia
 const auth = getAuth(app);
 
-// Configuración de persistencia de sesión
-setPersistence(auth, browserLocalPersistence)
-  .then(() => {
-    //console.log("Persistencia configurada en 'localStorage'.");
-  })
-  .catch((error) => {
-    //console.error("Error al configurar la persistencia:", error);
-  });
+// Analytics no está disponible en todos los entornos (navegadores in-app, modos
+// con cookies bloqueadas, etc.). Sin este chequeo getAnalytics tira una excepción
+// que rompe la carga de la app.
+let analytics = null;
+if (firebaseConfig.measurementId) {
+  isAnalyticsSupported()
+    .then((supported) => {
+      if (supported) analytics = getAnalytics(app);
+    })
+    .catch((error) => console.warn("Analytics no disponible:", error));
+}
+
+// La sesión se guarda en localStorage para que no haya que loguearse en cada visita.
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error("Error al configurar la persistencia de sesión:", error);
+});
 
 export { app, db, analytics, auth };

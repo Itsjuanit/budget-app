@@ -1,180 +1,256 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import {
   collection,
   query,
   where,
-  getDocs,
   orderBy,
+  onSnapshot,
+  addDoc,
   doc,
   deleteDoc,
   updateDoc,
   limit,
 } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
-import { getAuth } from "firebase/auth";
+import { useAuth } from "@/auth/AuthContext";
+import { EMPTY_CUSTOM_CATEGORIES } from "@/utils/categories";
+import { CATEGORY_PALETTE } from "@/utils/colors";
+import { getCurrentMonth, generateMonthRange, addMonths, compareMonths } from "@/utils/months";
 
-const TransactionsContext = createContext();
-
-/**
- * Genera un array de strings "YYYY-MM" desde startMonth hasta endMonth inclusive.
- * Ej: generateMonthRange("2025-03", "2025-07") → ["2025-03", "2025-04", "2025-05", "2025-06", "2025-07"]
- */
-const generateMonthRange = (startMonth, endMonth) => {
-  const [startYear, startMon] = startMonth.split("-").map(Number);
-  const [endYear, endMon] = endMonth.split("-").map(Number);
-
-  const months = [];
-  let year = startYear;
-  let month = startMon;
-
-  while (year < endYear || (year === endYear && month <= endMon)) {
-    months.push(`${year}-${String(month).padStart(2, "0")}`);
-    month++;
-    if (month > 12) {
-      month = 1;
-      year++;
-    }
-  }
-
-  return months;
-};
+const TransactionsContext = createContext(null);
 
 /**
- * Retorna el mes actual en formato "YYYY-MM".
+ * Fuente única de datos de la app: transacciones del mes seleccionado, meses
+ * disponibles, categorías personalizadas y presupuestos.
+ *
+ * Todo se lee con onSnapshot (tiempo real) y se comparte entre las pestañas, así
+ * el Dashboard y el Reporte mensual nunca muestran datos distintos.
  */
-const getCurrentMonth = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-};
-
 export const TransactionsProvider = ({ children }) => {
+  const { user } = useAuth();
+  const uid = user?.uid ?? null;
+
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
   const [transactions, setTransactions] = useState([]);
-  const [availableMonths, setAvailableMonths] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState(null);
+  const [loadingTransactions, setLoadingTransactions] = useState(true);
+  const [monthBounds, setMonthBounds] = useState({ first: null, last: null });
+  const [customCategories, setCustomCategories] = useState(EMPTY_CUSTOM_CATEGORIES);
+  const [budgets, setBudgets] = useState({});
 
-  // Cargar meses disponibles una sola vez al montar
+  // --- Transacciones del mes seleccionado (tiempo real) ---
   useEffect(() => {
-    const loadAvailableMonths = async () => {
-      try {
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (!user) return;
+    if (!uid || !selectedMonth) {
+      setTransactions([]);
+      setLoadingTransactions(false);
+      return;
+    }
 
-        // Obtener solo la transacción más antigua para saber el primer mes
-        const oldestQuery = query(
-          collection(db, "transactions"),
-          where("userId", "==", user.uid),
-          orderBy("monthYear", "asc"),
-          limit(1)
-        );
+    setLoadingTransactions(true);
+    const monthQuery = query(
+      collection(db, "transactions"),
+      where("userId", "==", uid),
+      where("monthYear", "==", selectedMonth)
+    );
 
-        const snapshot = await getDocs(oldestQuery);
-
-        if (snapshot.empty) {
-          // Sin transacciones — solo mostrar mes actual
-          setAvailableMonths([getCurrentMonth()]);
-          return;
-        }
-
-        const firstMonth = snapshot.docs[0].data().monthYear;
-        const currentMonth = getCurrentMonth();
-
-        // Obtener la transacción más nueva para cubrir meses futuros
-        const newestQuery = query(
-          collection(db, "transactions"),
-          where("userId", "==", user.uid),
-          orderBy("monthYear", "desc"),
-          limit(1)
-        );
-        const newestSnapshot = await getDocs(newestQuery);
-        const lastMonth = newestSnapshot.docs[0]?.data().monthYear || currentMonth;
-
-        // Generar desde el primer mes hasta el mayor entre actual y último con transacciones
-        const endMonth = lastMonth > currentMonth ? lastMonth : currentMonth;
-        const allMonths = generateMonthRange(firstMonth, endMonth);
-
-        setAvailableMonths(allMonths);
-      } catch (error) {
-        console.error("Error al cargar meses disponibles:", error);
+    const unsubscribe = onSnapshot(
+      monthQuery,
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
+        setTransactions(data);
+        setLoadingTransactions(false);
+      },
+      (error) => {
+        console.error("Error escuchando transacciones del mes:", error);
+        setLoadingTransactions(false);
       }
-    };
+    );
 
-    loadAvailableMonths();
-  }, []);
+    return () => unsubscribe();
+  }, [uid, selectedMonth]);
 
-  const loadTransactionsForMonth = useCallback(async (month) => {
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user || !month) return;
+  // --- Primer y último mes con transacciones (para armar el selector de reportes) ---
+  useEffect(() => {
+    if (!uid) {
+      setMonthBounds({ first: null, last: null });
+      return;
+    }
 
-      const transactionsRef = query(
+    const boundQuery = (direction) =>
+      query(
         collection(db, "transactions"),
-        where("userId", "==", user.uid),
-        where("monthYear", "==", month)
+        where("userId", "==", uid),
+        orderBy("monthYear", direction),
+        limit(1)
       );
 
-      const snapshot = await getDocs(transactionsRef);
-      const data = snapshot.docs.map((doc) => {
-        const transaction = doc.data();
-        const remainingAmount =
-          transaction.type === "expense" &&
-          transaction.category === "tarjeta-credito" &&
-          transaction.installments > 0 &&
-          transaction.installmentsRemaining > 0
-            ? (transaction.amount * (1 + (transaction.interest || 0) / 100)) /
-              transaction.installments
-            : 0;
+    const onError = (error) => console.error("Error cargando meses disponibles:", error);
 
-        return {
-          id: doc.id,
-          ...transaction,
-          remainingAmount,
-        };
-      });
+    // Se escuchan sólo los extremos (1 doc cada uno) en vez de traer todo el historial.
+    const unsubOldest = onSnapshot(
+      boundQuery("asc"),
+      (snap) =>
+        setMonthBounds((prev) => ({ ...prev, first: snap.docs[0]?.data().monthYear ?? null })),
+      onError
+    );
+    const unsubNewest = onSnapshot(
+      boundQuery("desc"),
+      (snap) =>
+        setMonthBounds((prev) => ({ ...prev, last: snap.docs[0]?.data().monthYear ?? null })),
+      onError
+    );
 
-      setTransactions(data);
-    } catch (error) {
-      console.error("Error al cargar transacciones del mes:", error);
+    return () => {
+      unsubOldest();
+      unsubNewest();
+    };
+  }, [uid]);
+
+  // --- Categorías personalizadas (tiempo real) ---
+  useEffect(() => {
+    if (!uid) {
+      setCustomCategories(EMPTY_CUSTOM_CATEGORIES);
+      return;
     }
+
+    const categoriesQuery = query(collection(db, "customCategories"), where("userId", "==", uid));
+
+    const unsubscribe = onSnapshot(
+      categoriesQuery,
+      (snapshot) => {
+        const grouped = { income: [], expense: [], savings: [] };
+        snapshot.docs.forEach((d, index) => {
+          const data = d.data();
+          if (!grouped[data.type]) return;
+          grouped[data.type].push({
+            id: d.id,
+            label: data.label,
+            value: data.value,
+            color: data.color || CATEGORY_PALETTE[index % CATEGORY_PALETTE.length],
+          });
+        });
+        setCustomCategories(grouped);
+      },
+      (error) => console.error("Error cargando categorías personalizadas:", error)
+    );
+
+    return () => unsubscribe();
+  }, [uid]);
+
+  // --- Presupuestos (tiempo real) ---
+  useEffect(() => {
+    if (!uid) {
+      setBudgets({});
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "budgets", uid),
+      // Si el documento se borra, los presupuestos vuelven a vacío en vez de quedar viejos.
+      (docSnap) => setBudgets(docSnap.exists() ? docSnap.data().categories || {} : {}),
+      (error) => console.error("Error cargando presupuestos:", error)
+    );
+
+    return () => unsubscribe();
+  }, [uid]);
+
+  // --- Meses disponibles en el selector ---
+  const availableMonths = useMemo(() => {
+    const currentMonth = getCurrentMonth();
+    const candidates = [monthBounds.first, monthBounds.last, currentMonth, selectedMonth].filter(
+      Boolean
+    );
+    const first = candidates.reduce((a, b) => (compareMonths(a, b) <= 0 ? a : b));
+    const last = candidates.reduce((a, b) => (compareMonths(a, b) >= 0 ? a : b));
+    return generateMonthRange(first, last);
+  }, [monthBounds, selectedMonth]);
+
+  // --- Navegación de meses ---
+  // Se permite mirar hasta 2 meses hacia adelante (para cargar gastos futuros ya
+  // conocidos) comparando meses absolutos, así el tope funciona también en nov/dic.
+  const maxMonth = useMemo(() => addMonths(getCurrentMonth(), 2), []);
+  const canGoToNextMonth = compareMonths(selectedMonth, maxMonth) < 0;
+  const isCurrentMonth = selectedMonth === getCurrentMonth();
+
+  const goToPreviousMonth = useCallback(() => {
+    setSelectedMonth((month) => addMonths(month, -1));
   }, []);
 
-  const updateTransaction = async (updatedTransaction) => {
-    try {
-      const transactionRef = doc(db, "transactions", updatedTransaction.id);
-      const { id, ...dataToUpdate } = updatedTransaction;
-      await updateDoc(transactionRef, dataToUpdate);
+  const goToNextMonth = useCallback(() => {
+    setSelectedMonth((month) => (compareMonths(month, maxMonth) < 0 ? addMonths(month, 1) : month));
+  }, [maxMonth]);
 
-      setTransactions((prev) => prev.map((t) => (t.id === id ? updatedTransaction : t)));
-    } catch (error) {
-      console.error("Error al actualizar transacción:", error);
-    }
-  };
+  const goToCurrentMonth = useCallback(() => setSelectedMonth(getCurrentMonth()), []);
 
-  const deleteTransaction = async (id) => {
-    try {
-      await deleteDoc(doc(db, "transactions", id));
-      setTransactions((prev) => prev.filter((t) => t.id !== id));
-    } catch (error) {
-      console.error("Error al eliminar transacción:", error);
-    }
-  };
-
-  return (
-    <TransactionsContext.Provider
-      value={{
-        transactions,
-        availableMonths,
-        selectedMonth,
-        setSelectedMonth,
-        loadTransactionsForMonth,
-        updateTransaction,
-        deleteTransaction,
-      }}
-    >
-      {children}
-    </TransactionsContext.Provider>
+  // --- Mutaciones ---
+  // Todas propagan el error para que el componente pueda mostrar el toast correcto.
+  // (Antes se tragaban el error y siempre se mostraba "Éxito").
+  const addTransaction = useCallback(
+    async (transaction) => {
+      if (!uid) throw new Error("No hay usuario autenticado.");
+      return addDoc(collection(db, "transactions"), { ...transaction, userId: uid });
+    },
+    [uid]
   );
+
+  const updateTransaction = useCallback(async (updatedTransaction) => {
+    const { id, ...dataToUpdate } = updatedTransaction;
+    await updateDoc(doc(db, "transactions", id), dataToUpdate);
+    // No se toca el estado local: el onSnapshot del mes ya refleja el cambio, y si la
+    // transacción se movió a otro mes desaparece de la lista como corresponde.
+  }, []);
+
+  const deleteTransaction = useCallback(async (id) => {
+    await deleteDoc(doc(db, "transactions", id));
+  }, []);
+
+  const addCustomCategory = useCallback(
+    async (category) => {
+      if (!uid) throw new Error("No hay usuario autenticado.");
+      return addDoc(collection(db, "customCategories"), { ...category, userId: uid });
+    },
+    [uid]
+  );
+
+  const value = useMemo(
+    () => ({
+      transactions,
+      loadingTransactions,
+      selectedMonth,
+      setSelectedMonth,
+      availableMonths,
+      canGoToNextMonth,
+      isCurrentMonth,
+      goToPreviousMonth,
+      goToNextMonth,
+      goToCurrentMonth,
+      customCategories,
+      budgets,
+      addTransaction,
+      updateTransaction,
+      deleteTransaction,
+      addCustomCategory,
+    }),
+    [
+      transactions,
+      loadingTransactions,
+      selectedMonth,
+      availableMonths,
+      canGoToNextMonth,
+      isCurrentMonth,
+      goToPreviousMonth,
+      goToNextMonth,
+      goToCurrentMonth,
+      customCategories,
+      budgets,
+      addTransaction,
+      updateTransaction,
+      deleteTransaction,
+      addCustomCategory,
+    ]
+  );
+
+  return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;
 };
 
 export const useTransactions = () => {

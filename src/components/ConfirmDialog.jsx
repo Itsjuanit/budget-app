@@ -1,13 +1,12 @@
-import React from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 
-export const ConfirmDialog = ({ visible, onHide, onConfirm, message }) => {
+export const ConfirmDialog = ({ visible, onHide, onConfirm, message, loading = false }) => {
   return (
     <Dialog
       header={
         <div className="flex items-center gap-2">
-          <i className="pi pi-exclamation-triangle text-amber-400 text-xl"></i>
+          <i className="pi pi-exclamation-triangle text-warning text-xl"></i>
           <span>Confirmación</span>
         </div>
       }
@@ -23,6 +22,7 @@ export const ConfirmDialog = ({ visible, onHide, onConfirm, message }) => {
             className="p-button-outlined p-button-sm"
             severity="secondary"
             onClick={onHide}
+            disabled={loading}
           />
           <Button
             label="Eliminar"
@@ -30,11 +30,12 @@ export const ConfirmDialog = ({ visible, onHide, onConfirm, message }) => {
             className="p-button-sm"
             severity="danger"
             onClick={onConfirm}
+            loading={loading}
           />
         </div>
       }
     >
-      <p className="m-0 text-[#cbd5e1] leading-relaxed">
+      <p className="m-0 text-secondary leading-relaxed">
         {message || "¿Estás seguro que deseas realizar esta acción?"}
       </p>
     </Dialog>

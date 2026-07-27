@@ -1,796 +1,157 @@
-import React, { useEffect, useState, useRef } from "react";
-import { Card } from "primereact/card";
-import { Chart } from "primereact/chart";
-import { Button } from "primereact/button";
+import { useRef, useState } from "react";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
-import { Paginator } from "primereact/paginator";
-import { DataTable } from "primereact/datatable";
-import { Column } from "primereact/column";
-import { Tag } from "primereact/tag";
-import { ProgressBar } from "primereact/progressbar";
-import { InputText } from "primereact/inputtext";
-import { Dropdown } from "primereact/dropdown";
-import { formatCurrency } from "../utils/format";
 import { Wallet, TrendingUp, PiggyBank, Landmark } from "lucide-react";
-import { db } from "@/firebaseConfig";
-import {
-  collection,
-  onSnapshot,
-  query,
-  where,
-  doc,
-  deleteDoc,
-  onSnapshot as onSnapshotSingle,
-} from "firebase/firestore";
-import { getAuth } from "firebase/auth";
-import { categories } from "../utils/categories";
+import { useTransactions } from "@/context/TransactionsProvider";
+import { useMonthlyTotals } from "@/hooks/useMonthlyTotals";
+import { useBudgetAlerts } from "@/hooks/useBudgetAlerts";
+import { formatCurrency } from "@/utils/format";
 import { EditTransactionForm } from "./EditTransactionForm";
-import { format } from "date-fns";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { BudgetProgress } from "./BudgetProgress";
-import { CATEGORY_PALETTE } from "../utils/colors";
+import { MonthNavigator } from "./dashboard/MonthNavigator";
+import { SummaryCards, CARD_TONES, balanceTone } from "./dashboard/SummaryCards";
+import { SavingsBreakdown } from "./dashboard/SavingsBreakdown";
+import { ExpensesChart } from "./dashboard/ExpensesChart";
+import { TransactionsPanel } from "./dashboard/TransactionsPanel";
 
 export const Dashboard = () => {
-  const [transactions, setTransactions] = useState([]);
-  const [monthlyExpenses, setMonthlyExpenses] = useState(0);
-  const [monthlyIncome, setMonthlyIncome] = useState(0);
-  const [monthlySavingsDeposits, setMonthlySavingsDeposits] = useState(0);
-  const [monthlyAvailable, setMonthlyAvailable] = useState(0);
-  const [expensesByCategory, setExpensesByCategory] = useState([]);
-  const [savingsByCategory, setSavingsByCategory] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [transactionToEdit, setTransactionToEdit] = useState(null);
-  const [isMobile, setIsMobile] = useState(false);
-  const [first, setFirst] = useState(0);
-  const [rows, setRows] = useState(10);
-  const [confirmDialogVisible, setConfirmDialogVisible] = useState(false);
-  const [transactionToDelete, setTransactionToDelete] = useState(null);
-  const [budgets, setBudgets] = useState({});
-  const [alertsShown, setAlertsShown] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [filterType, setFilterType] = useState(null);
-  const [filterText, setFilterText] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [customCategories, setCustomCategories] = useState({
-    income: [],
-    expense: [],
-    savings: [],
-  });
+  const {
+    transactions,
+    customCategories,
+    budgets,
+    selectedMonth,
+    canGoToNextMonth,
+    isCurrentMonth,
+    goToPreviousMonth,
+    goToNextMonth,
+    goToCurrentMonth,
+    deleteTransaction,
+  } = useTransactions();
 
+  const totals = useMonthlyTotals(transactions, customCategories);
   const toast = useRef(null);
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const [transactionToEdit, setTransactionToEdit] = useState(null);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Cargar categorías personalizadas en tiempo real
-  useEffect(() => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const q = query(collection(db, "customCategories"), where("userId", "==", user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const income = [];
-      const expense = [];
-      const savings = [];
-      let colorIndex = 0;
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const cat = {
-          label: data.label,
-          value: data.value,
-          color: data.color || CATEGORY_PALETTE[colorIndex % CATEGORY_PALETTE.length],
-        };
-        colorIndex++;
-        if (data.type === "income") income.push(cat);
-        else if (data.type === "expense") expense.push(cat);
-        else if (data.type === "savings") savings.push(cat);
-      });
-      setCustomCategories({ income, expense, savings });
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    const monthYear = `${selectedMonth.getFullYear()}-${String(
-      selectedMonth.getMonth() + 1
-    ).padStart(2, "0")}`;
-
-    if (user) {
-      const userTransactionsRef = query(
-        collection(db, "transactions"),
-        where("userId", "==", user.uid),
-        where("monthYear", "==", monthYear)
-      );
-
-      const unsubscribe = onSnapshot(userTransactionsRef, (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        data.sort((a, b) => new Date(b.date) - new Date(a.date));
-        setTransactions(data);
-      });
-
-      return () => unsubscribe();
-    }
-  }, [selectedMonth]);
-
-  useEffect(() => {
-    // Gastos
-    const expenseTransactions = transactions.filter((t) => t.type === "expense");
-    const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
-    setMonthlyExpenses(totalExpenses);
-
-    const allExpenseCategories = [...categories.expense, ...customCategories.expense];
-    const expensesGroupedByCategory = allExpenseCategories
-      .map((category) => {
-        const total = expenseTransactions
-          .filter((t) => t.category === category.value)
-          .reduce((sum, t) => sum + t.amount, 0);
-        return { category: category.label, amount: total, color: category.color || "#94a3b8" };
-      })
-      .filter((c) => c.amount > 0);
-    setExpensesByCategory(expensesGroupedByCategory);
-
-    // Ingresos
-    const totalIncome = transactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + t.amount, 0);
-    setMonthlyIncome(totalIncome);
-
-    // Ahorros depositados
-    const savingsTransactions = transactions.filter((t) => t.type === "savings");
-    const totalSavings = savingsTransactions.reduce((sum, t) => sum + t.amount, 0);
-    setMonthlySavingsDeposits(totalSavings);
-
-    const allSavingsCategories = [...categories.savings, ...customCategories.savings];
-    const savingsGrouped = allSavingsCategories
-      .map((category) => {
-        const total = savingsTransactions
-          .filter((t) => t.category === category.value)
-          .reduce((sum, t) => sum + t.amount, 0);
-        return { category: category.label, amount: total, color: category.color || "#94a3b8" };
-      })
-      .filter((c) => c.amount > 0);
-    setSavingsByCategory(savingsGrouped);
-
-    // Disponible = ingresos - gastos - ahorros
-    setMonthlyAvailable(totalIncome - totalExpenses - totalSavings);
-  }, [transactions, customCategories]);
-
-  // Cargar presupuestos en tiempo real
-  useEffect(() => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const budgetRef = doc(db, "budgets", user.uid);
-    const unsubscribe = onSnapshot(budgetRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setBudgets(docSnap.data().categories || {});
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Resetear alertas al cambiar de mes
-  useEffect(() => {
-    setAlertsShown(false);
-  }, [selectedMonth]);
-
-  // Alertas de presupuesto
-  useEffect(() => {
-    if (alertsShown || !toast.current || Object.keys(budgets).length === 0) return;
-    if (transactions.length === 0) return;
-
-    const expensesByCat = {};
-    transactions
-      .filter((t) => t.type === "expense")
-      .forEach((t) => {
-        expensesByCat[t.category] = (expensesByCat[t.category] || 0) + t.amount;
-      });
-
-    const alerts = [];
-
-    Object.entries(budgets).forEach(([categoryValue, limit]) => {
-      if (limit <= 0) return;
-      const spent = expensesByCat[categoryValue] || 0;
-      const percentage = (spent / limit) * 100;
-      const label = getCategoryLabel(categoryValue);
-
-      if (percentage >= 100) {
-        alerts.push({
-          severity: "error",
-          summary: "¡Presupuesto excedido!",
-          detail: `${label}: ${formatCurrency(spent)} de ${formatCurrency(limit)} (${Math.round(percentage)}%)`,
-          life: 8000,
-        });
-      } else if (percentage >= 80) {
-        alerts.push({
-          severity: "warn",
-          summary: "Presupuesto al límite",
-          detail: `${label}: ${formatCurrency(spent)} de ${formatCurrency(limit)} (${Math.round(percentage)}%)`,
-          life: 6000,
-        });
-      }
-    });
-
-    if (alerts.length > 0) {
-      // Ordenar: excedidos primero, luego warnings
-      alerts.sort((a, b) => (a.severity === "error" ? -1 : 1));
-
-      alerts.forEach((alert, index) => {
-        setTimeout(() => {
-          toast.current?.show(alert);
-        }, index * 400);
-      });
-      setAlertsShown(true);
-    }
-  }, [transactions, budgets, alertsShown]);
-
-  // --- Chart config (solo gastos) ---
-  const chartData = {
-    labels: expensesByCategory.map((item) => item.category),
-    datasets: [
-      {
-        data: expensesByCategory.map((item) => item.amount),
-        backgroundColor: expensesByCategory.map((item) => item.color),
-        borderColor: "transparent",
-        hoverBorderColor: "#ffffff33",
-        hoverBorderWidth: 2,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    cutout: "60%",
-    plugins: {
-      legend: {
-        display: true,
-        position: "bottom",
-        labels: {
-          color: "#e2e8f0",
-          padding: 16,
-          usePointStyle: true,
-          pointStyleWidth: 10,
-          font: { size: 12 },
-        },
-      },
-      tooltip: {
-        backgroundColor: "#1e1e3a",
-        titleColor: "#e2e8f0",
-        bodyColor: "#e2e8f0",
-        borderColor: "#2a2a4a",
-        borderWidth: 1,
-        padding: 12,
-        cornerRadius: 8,
-        callbacks: {
-          label: (context) => {
-            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-            const percentage = ((context.parsed / total) * 100).toFixed(1);
-            return ` ${context.label}: ${formatCurrency(context.parsed)} (${percentage}%)`;
-          },
-        },
-      },
-    },
-  };
-
-  // --- Handlers ---
-  const handleEdit = (transaction) => {
-    setTransactionToEdit(transaction);
-    setIsModalOpen(true);
-  };
-
-  const confirmDelete = (transaction) => {
-    setTransactionToDelete(transaction);
-    setConfirmDialogVisible(true);
-  };
+  useBudgetAlerts({
+    transactions,
+    budgets,
+    customCategories,
+    month: selectedMonth,
+    toastRef: toast,
+  });
 
   const handleDelete = async () => {
     if (!transactionToDelete) return;
+    setDeleting(true);
     try {
-      await deleteDoc(doc(db, "transactions", transactionToDelete.id));
-      toast.current.show({
+      await deleteTransaction(transactionToDelete.id);
+      toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: "Transacción eliminada correctamente",
+        detail: "Transacción eliminada correctamente.",
         life: 3000,
       });
       setTransactionToDelete(null);
     } catch (error) {
       console.error("Error eliminando transacción:", error);
-      toast.current.show({
+      toast.current?.show({
         severity: "error",
         summary: "Error",
-        detail: "Hubo un problema al eliminar la transacción",
+        detail: "Hubo un problema al eliminar la transacción.",
         life: 3000,
       });
     } finally {
-      setConfirmDialogVisible(false);
+      setDeleting(false);
     }
   };
 
-  const onPageChange = (event) => {
-    setFirst(event.first);
-    setRows(event.rows);
-  };
-
-  // --- Helpers ---
-  const savingsPercentage =
-    monthlyIncome > 0 ? Math.round((monthlySavingsDeposits / monthlyIncome) * 100) : 0;
-
-  const getCategoryLabel = (value) => {
-    const allCategories = [
-      ...categories.income,
-      ...categories.savings,
-      ...categories.expense,
-      ...customCategories.income,
-      ...customCategories.expense,
-      ...customCategories.savings,
-    ];
-    return allCategories.find((c) => c.value === value)?.label || value;
-  };
-
-  const getTypeConfig = (type) => {
-    const config = {
-      income: { label: "Ingreso", severity: "success", sign: "+" },
-      savings: { label: "Ahorro", severity: "info", sign: "" },
-      expense: { label: "Gasto", severity: "danger", sign: "-" },
-    };
-    return config[type] || config.expense;
-  };
-  // --- Transacciones filtradas ---
-  const filteredTransactions = transactions.filter((t) => {
-    if (filterType && t.type !== filterType) return false;
-    if (filterText && !t.description.toLowerCase().includes(filterText.toLowerCase())) return false;
-    return true;
-  });
-  const clearFilters = () => {
-    setFilterType(null);
-    setFilterText("");
-  };
-
-  const hasActiveFilters = filterType || filterText;
-
-  // --- Navegación de mes ---
-  const handlePrevMonth = () => {
-    setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1));
-  };
-
-  const isNextMonthDisabled =
-    selectedMonth.getMonth() >= new Date().getMonth() + 2 &&
-    selectedMonth.getFullYear() === new Date().getFullYear();
-
-  const isCurrentMonth =
-    selectedMonth.getMonth() === new Date().getMonth() &&
-    selectedMonth.getFullYear() === new Date().getFullYear();
-
-  // --- Summary cards ---
   const summaryCards = [
     {
       icon: <Wallet className="w-8 h-8" />,
       label: "Gastos mensuales",
-      value: formatCurrency(monthlyExpenses),
-      color: "text-red-400",
-      borderColor: "border-red-500/30",
-      bgGlow: "bg-red-500/5",
+      value: formatCurrency(totals.totalExpenses),
+      ...CARD_TONES.red,
     },
     {
       icon: <PiggyBank className="w-8 h-8" />,
       label: "Ahorro depositado",
-      value: formatCurrency(monthlySavingsDeposits),
-      color: "text-blue-400",
-      borderColor: "border-blue-500/30",
-      bgGlow: "bg-blue-500/5",
+      value: formatCurrency(totals.totalSavings),
+      ...CARD_TONES.blue,
     },
     {
       icon: <Landmark className="w-8 h-8" />,
       label: "Disponible",
-      value: formatCurrency(monthlyAvailable),
-      color: monthlyAvailable >= 0 ? "text-emerald-400" : "text-red-400",
-      borderColor: monthlyAvailable >= 0 ? "border-emerald-500/30" : "border-red-500/30",
-      bgGlow: monthlyAvailable >= 0 ? "bg-emerald-500/5" : "bg-red-500/5",
+      value: formatCurrency(totals.available),
+      ...balanceTone(totals.available),
     },
     {
       icon: <TrendingUp className="w-8 h-8" />,
       label: "% destinado a ahorro",
-      value: `${savingsPercentage}%`,
-      color: "text-purple-400",
-      borderColor: "border-purple-500/30",
-      bgGlow: "bg-purple-500/5",
+      value: `${totals.savingsPercentage}%`,
+      ...CARD_TONES.purple,
     },
   ];
 
-  // --- Mobile cards ---
-  const renderCards = () => {
-    const currentTransactions = filteredTransactions.slice(first, first + rows);
-
-    return (
-      <div className="flex flex-col gap-3">
-        {currentTransactions.map((transaction) => {
-          const typeConfig = getTypeConfig(transaction.type);
-          return (
-            <div
-              key={transaction.id}
-              className="rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] p-4"
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="text-white font-medium text-sm">{transaction.description}</p>
-                    <Tag
-                      value={typeConfig.label}
-                      severity={typeConfig.severity}
-                      className="text-xs"
-                    />
-                  </div>
-                  <p className="text-[#94a3b8] text-xs">
-                    {format(new Date(transaction.date), "dd/MM/yyyy")} ·{" "}
-                    {getCategoryLabel(transaction.category)}
-                  </p>
-                </div>
-                <span
-                  className={`text-sm font-bold ${
-                    transaction.type === "income"
-                      ? "text-emerald-400"
-                      : transaction.type === "savings"
-                        ? "text-blue-400"
-                        : "text-red-400"
-                  }`}
-                >
-                  {typeConfig.sign}
-                  {formatCurrency(transaction.amount)}
-                </span>
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button
-                  icon="pi pi-pencil"
-                  className="p-button-rounded p-button-text p-button-sm"
-                  tooltip="Editar"
-                  tooltipOptions={{ position: "top" }}
-                  onClick={() => handleEdit(transaction)}
-                />
-                <Button
-                  icon="pi pi-trash"
-                  className="p-button-rounded p-button-text p-button-sm"
-                  tooltip="Eliminar"
-                  tooltipOptions={{ position: "top" }}
-                  onClick={() => confirmDelete(transaction)}
-                  severity="danger"
-                />
-              </div>
-            </div>
-          );
-        })}
-        <Paginator
-          first={first}
-          rows={rows}
-          totalRecords={filteredTransactions.length}
-          rowsPerPageOptions={[5, 10, 20]}
-          onPageChange={onPageChange}
-          className="mt-2"
-        />
-      </div>
-    );
-  };
-
-  // --- Desktop table ---
-  const renderTable = () => (
-    <DataTable
-      value={filteredTransactions}
-      paginator
-      rows={10}
-      rowsPerPageOptions={[5, 10, 25, 50]}
-      className="p-datatable-sm"
-      emptyMessage="No hay transacciones este mes."
-      stripedRows
-    >
-      <Column
-        field="date"
-        header="Fecha"
-        body={(row) => (
-          <span className="text-[#cbd5e1] text-sm">{format(new Date(row.date), "dd/MM/yyyy")}</span>
-        )}
-        sortable
-      />
-      <Column
-        field="description"
-        header="Descripción"
-        body={(row) => <span className="text-white text-sm font-medium">{row.description}</span>}
-        sortable
-      />
-      <Column
-        field="category"
-        header="Categoría"
-        body={(row) => (
-          <span className="text-[#94a3b8] text-sm">{getCategoryLabel(row.category)}</span>
-        )}
-        sortable
-      />
-      <Column
-        field="type"
-        header="Tipo"
-        body={(row) => {
-          const typeConfig = getTypeConfig(row.type);
-          return (
-            <Tag value={typeConfig.label} severity={typeConfig.severity} className="text-xs" />
-          );
-        }}
-        sortable
-      />
-      <Column
-        field="amount"
-        header="Monto"
-        body={(row) => {
-          const typeConfig = getTypeConfig(row.type);
-          return (
-            <span
-              className={`text-sm font-bold ${
-                row.type === "income"
-                  ? "text-emerald-400"
-                  : row.type === "savings"
-                    ? "text-blue-400"
-                    : "text-red-400"
-              }`}
-            >
-              {typeConfig.sign}
-              {formatCurrency(row.amount)}
-            </span>
-          );
-        }}
-        sortable
-      />
-      <Column
-        header="Acciones"
-        body={(row) => (
-          <div className="flex gap-1">
-            <Button
-              icon="pi pi-pencil"
-              className="p-button-rounded p-button-text p-button-sm"
-              tooltip="Editar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => handleEdit(row)}
-            />
-            <Button
-              icon="pi pi-trash"
-              className="p-button-rounded p-button-text p-button-sm"
-              tooltip="Eliminar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => confirmDelete(row)}
-              severity="danger"
-            />
-          </div>
-        )}
-      />
-    </DataTable>
-  );
-
-  // --- Render principal ---
   return (
     <div>
       <Toast ref={toast} />
 
-      {/* Header con selector de mes */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-        <h1 className="text-2xl font-bold text-white">Análisis del gasto</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            icon="pi pi-chevron-left"
-            className="p-button-rounded p-button-text p-button-sm"
-            onClick={handlePrevMonth}
-          />
-          <span className="text-white font-medium min-w-[150px] text-center capitalize">
-            {selectedMonth.toLocaleDateString("es-AR", { month: "long", year: "numeric" })}
-          </span>
-          <Button
-            icon="pi pi-chevron-right"
-            className="p-button-rounded p-button-text p-button-sm"
-            onClick={handleNextMonth}
-            disabled={isNextMonthDisabled}
-          />
-          {!isCurrentMonth && (
-            <Button
-              label="Hoy"
-              className="p-button-text p-button-sm text-purple-400"
-              onClick={() => setSelectedMonth(new Date())}
-            />
-          )}
-        </div>
+        <h1 className="text-2xl font-bold text-strong">Análisis del gasto</h1>
+        <MonthNavigator
+          month={selectedMonth}
+          canGoNext={canGoToNextMonth}
+          isCurrentMonth={isCurrentMonth}
+          onPrevious={goToPreviousMonth}
+          onNext={goToNextMonth}
+          onToday={goToCurrentMonth}
+        />
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {summaryCards.map((card, index) => (
-          <div key={index} className={`rounded-xl border ${card.borderColor} ${card.bgGlow} p-5`}>
-            <div className="flex items-center gap-4">
-              <div className={`${card.color} opacity-80`}>{card.icon}</div>
-              <div>
-                <p className="text-[#94a3b8] text-sm">{card.label}</p>
-                <p className={`text-2xl font-bold ${card.color} mt-1`}>{card.value}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <SummaryCards cards={summaryCards} />
 
       <BudgetProgress transactions={transactions} />
 
-      {/* Sección de ahorro */}
-      {monthlySavingsDeposits > 0 && (
-        <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-5 mb-6">
-          <h3 className="text-lg font-semibold mb-4 text-white">Detalle de ahorro</h3>
+      <SavingsBreakdown
+        totalSavings={totals.totalSavings}
+        totalIncome={totals.totalIncome}
+        savingsPercentage={totals.savingsPercentage}
+        byCategory={totals.savingsByCategory}
+      />
 
-          {/* Barra de progreso */}
-          <div className="mb-4">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-[#94a3b8]">
-                {savingsPercentage}% del ingreso destinado a ahorro
-              </span>
-              <span className="text-blue-400 font-medium">
-                {formatCurrency(monthlySavingsDeposits)} / {formatCurrency(monthlyIncome)}
-              </span>
-            </div>
-            <ProgressBar
-              value={Math.min(savingsPercentage, 100)}
-              showValue={false}
-              style={{ height: "8px" }}
-              color="#60a5fa"
-            />
-          </div>
-
-          {/* Desglose por categoría de ahorro */}
-          {savingsByCategory.length > 0 && (
-            <div className="flex flex-wrap gap-4">
-              {savingsByCategory.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3"
-                >
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <div>
-                    <p className="text-xs text-[#94a3b8]">{item.category}</p>
-                    <p className="text-sm font-bold text-blue-400">{formatCurrency(item.amount)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Chart + Table */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">Gastos por categoría</h3>
-          {expensesByCategory.length > 0 ? (
-            <Chart type="doughnut" data={chartData} options={chartOptions} className="w-full" />
-          ) : (
-            <p className="text-[#94a3b8] text-sm text-center py-8">
-              No hay gastos registrados este mes.
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">
-              Transacciones recientes
-              {hasActiveFilters && (
-                <span className="text-xs text-[#94a3b8] font-normal ml-2">
-                  ({filteredTransactions.length} de {transactions.length})
-                </span>
-              )}
-            </h3>
-            <div className="flex gap-2">
-              {hasActiveFilters && (
-                <Button
-                  icon="pi pi-filter-slash"
-                  className="p-button-rounded p-button-text p-button-sm"
-                  tooltip="Limpiar filtros"
-                  tooltipOptions={{ position: "top" }}
-                  onClick={clearFilters}
-                  severity="secondary"
-                />
-              )}
-              <Button
-                icon="pi pi-filter"
-                className={`p-button-rounded p-button-text p-button-sm ${
-                  showFilters ? "text-purple-400" : ""
-                }`}
-                tooltip="Filtros"
-                tooltipOptions={{ position: "top" }}
-                onClick={() => setShowFilters(!showFilters)}
-              />
-            </div>
-          </div>
-
-          {/* Panel de filtros */}
-          {showFilters && (
-            <div className="flex flex-col sm:flex-row gap-3 mb-4 p-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a]">
-              <div className="flex flex-col gap-1 flex-1">
-                <label className="text-xs text-[#64748b]">Buscar</label>
-                <span className="p-input-icon-left w-full">
-                  <i className="pi pi-search text-[#64748b]" />
-                  <InputText
-                    value={filterText}
-                    onChange={(e) => {
-                      setFilterText(e.target.value);
-                      setFirst(0);
-                    }}
-                    placeholder="Buscar por descripción..."
-                    className="w-full p-inputtext-sm"
-                  />
-                </span>
-              </div>
-              <div className="flex flex-col gap-1 sm:w-48">
-                <label className="text-xs text-[#64748b]">Tipo</label>
-                <Dropdown
-                  value={filterType}
-                  options={[
-                    { label: "Todos", value: null },
-                    { label: "Ingreso", value: "income" },
-                    { label: "Ahorro", value: "savings" },
-                    { label: "Gasto", value: "expense" },
-                  ]}
-                  onChange={(e) => {
-                    setFilterType(e.value);
-                    setFirst(0);
-                  }}
-                  placeholder="Todos"
-                  className="w-full p-inputtext-sm"
-                />
-              </div>
-            </div>
-          )}
-          {filteredTransactions.length > 0 ? (
-            isMobile ? (
-              renderCards()
-            ) : (
-              renderTable()
-            )
-          ) : (
-            <p className="text-[#94a3b8] text-sm text-center py-8">
-              {hasActiveFilters
-                ? "No hay transacciones que coincidan con los filtros."
-                : "No hay transacciones este mes."}
-            </p>
-          )}
-        </div>
+        <ExpensesChart expensesByCategory={totals.expensesByCategory} />
+        <TransactionsPanel
+          transactions={transactions}
+          customCategories={customCategories}
+          onEdit={setTransactionToEdit}
+          onDelete={setTransactionToDelete}
+        />
       </div>
 
-      {/* Edit Dialog */}
       <Dialog
         header="Editar Transacción"
-        visible={isModalOpen}
+        visible={Boolean(transactionToEdit)}
         style={{ width: "45vw" }}
-        onHide={() => setIsModalOpen(false)}
+        onHide={() => setTransactionToEdit(null)}
         breakpoints={{ "960px": "75vw", "640px": "90vw" }}
       >
         {transactionToEdit && (
           <EditTransactionForm
             transaction={transactionToEdit}
-            onClose={() => setIsModalOpen(false)}
+            onClose={() => setTransactionToEdit(null)}
           />
         )}
       </Dialog>
 
       <ConfirmDialog
-        visible={confirmDialogVisible}
-        onHide={() => setConfirmDialogVisible(false)}
+        visible={Boolean(transactionToDelete)}
+        loading={deleting}
+        onHide={() => setTransactionToDelete(null)}
         onConfirm={handleDelete}
         message={`¿Estás seguro de que deseas eliminar la transacción "${transactionToDelete?.description}"?`}
       />

@@ -1,86 +1,121 @@
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { Password } from "primereact/password";
+import { Message } from "primereact/message";
 import { Toast } from "primereact/toast";
 import { Link, useNavigate } from "react-router-dom";
 import {
   getAuth,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
 import manos from "../assets/Manos.png";
 import { IconField } from "primereact/iconfield";
 
+/** Traduce los códigos de Firebase Auth a mensajes que sirvan al usuario. */
+const authErrorMessage = (code) => {
+  switch (code) {
+    case "auth/invalid-email":
+      return "El correo electrónico no es válido.";
+    case "auth/user-disabled":
+      return "Esta cuenta está deshabilitada.";
+    case "auth/too-many-requests":
+      return "Demasiados intentos fallidos. Esperá unos minutos e intentá de nuevo.";
+    case "auth/network-request-failed":
+      return "No hay conexión. Revisá tu internet e intentá de nuevo.";
+    case "auth/popup-closed-by-user":
+      return "Cerraste la ventana de Google antes de terminar.";
+    default:
+      return "Credenciales incorrectas. Inténtalo nuevamente.";
+  }
+};
+
 export const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const toast = useRef(null);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setErrorMessage("Por favor, complete todos los campos.");
-      toast.current.show({
-        severity: "warn",
-        summary: "Campos incompletos",
-        detail: "Por favor, complete todos los campos.",
-        life: 3000,
-      });
-      return;
-    }
+    if (submitting) return;
 
-    const auth = getAuth();
+    setSubmitting(true);
+    setErrorMessage("");
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setErrorMessage("");
-      toast.current.show({
-        severity: "success",
-        summary: "Inicio exitoso",
-        detail: "Bienvenido de nuevo.",
-        life: 3000,
-      });
-      navigate("/");
+      await signInWithEmailAndPassword(getAuth(), email, password);
+      navigate("/", { replace: true });
     } catch (error) {
-      setErrorMessage("Credenciales incorrectas. Inténtalo nuevamente.");
-      toast.current.show({
+      const message = authErrorMessage(error.code);
+      setErrorMessage(message);
+      toast.current?.show({ severity: "error", summary: "Error", detail: message, life: 3000 });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setErrorMessage("");
+    try {
+      await signInWithPopup(getAuth(), new GoogleAuthProvider());
+      navigate("/", { replace: true });
+    } catch (error) {
+      toast.current?.show({
         severity: "error",
         summary: "Error",
-        detail: "Credenciales incorrectas.",
+        detail: authErrorMessage(error.code),
         life: 3000,
       });
     }
   };
 
-  const handleGoogleLogin = async () => {
-    const auth = getAuth();
-    const provider = new GoogleAuthProvider();
+  // Antes esto era un link a /forgot-password, una ruta que no existía y que
+  // terminaba rebotando de vuelta al login.
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Falta el correo",
+        detail: "Escribí tu correo electrónico y volvé a tocar el enlace.",
+        life: 4000,
+      });
+      return;
+    }
+
     try {
-      await signInWithPopup(auth, provider);
-      navigate("/");
+      await sendPasswordResetEmail(getAuth(), email.trim());
+      toast.current?.show({
+        severity: "success",
+        summary: "Correo enviado",
+        detail: "Si la cuenta existe, vas a recibir un enlace para restablecer tu contraseña.",
+        life: 5000,
+      });
     } catch (error) {
-      toast.current.show({
+      console.error("Error enviando el correo de recuperación:", error);
+      toast.current?.show({
         severity: "error",
         summary: "Error",
-        detail: "Error al iniciar sesión con Google.",
-        life: 3000,
+        detail: authErrorMessage(error.code),
+        life: 4000,
       });
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-[#1a1a2e]">
+    <div className="flex min-h-screen bg-bg">
       <Toast ref={toast} />
 
       {/* Left Side - Illustration */}
       <div className="hidden md:flex flex-1 items-center justify-center p-8">
-        <div className="rounded-2xl bg-[#1e1e3a]/50 border border-[#2a2a4a] p-12 backdrop-blur-sm">
+        <div className="rounded-2xl bg-surface-raised border border-border p-12 backdrop-blur-sm">
           <img
             src={manos}
-            alt="Login illustration"
+            alt=""
             className="max-w-[80%] h-auto mx-auto"
             style={{ filter: "drop-shadow(0 10px 30px rgba(139, 92, 246, 0.2))" }}
           />
@@ -89,27 +124,25 @@ export const Login = () => {
 
       {/* Right Side - Login Form */}
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-[420px] rounded-2xl border border-[#2a2a4a] bg-[#1e1e3a] p-8">
-          {/* Logo */}
+        <div className="w-full max-w-[420px] rounded-2xl border border-border bg-surface p-8">
           <div className="text-center mb-6">
-            <i className="pi pi-wallet text-4xl text-purple-400"></i>
+            <i className="pi pi-wallet text-4xl text-brand"></i>
           </div>
 
-          {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">¡Bienvenido de nuevo!</h1>
-            <p className="text-[#94a3b8]">Por favor ingresa tus datos</p>
+            <h1 className="text-3xl font-bold text-strong mb-2">¡Bienvenido de nuevo!</h1>
+            <p className="text-muted">Por favor ingresa tus datos</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            {/* Email */}
             <div className="flex flex-col gap-2">
-              <label htmlFor="email" className="text-sm font-medium text-[#94a3b8]">
+              <label htmlFor="email" className="text-sm font-medium text-muted">
                 Correo Electrónico
               </label>
               <InputText
                 id="email"
+                type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full"
@@ -117,18 +150,18 @@ export const Login = () => {
               />
             </div>
 
-            {/* Password */}
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
-                <label htmlFor="password" className="text-sm font-medium text-[#94a3b8]">
+                <label htmlFor="password" className="text-sm font-medium text-muted">
                   Contraseña
                 </label>
-                <Link
-                  to="/forgot-password"
-                  className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-xs text-brand hover:text-brand-hover transition-colors"
                 >
                   ¿Olvidaste tu contraseña?
-                </Link>
+                </button>
               </div>
               <IconField iconPosition="left" className="w-full">
                 <Password
@@ -142,35 +175,23 @@ export const Login = () => {
               </IconField>
             </div>
 
-            {/* Remember Me */}
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="remember"
-                className="h-4 w-4 rounded border-[#2a2a4a] bg-[#16162a] text-purple-500 focus:ring-purple-500/30"
-              />
-              <label htmlFor="remember" className="text-sm text-[#94a3b8]">
-                Recordarme por 30 días
-              </label>
-            </div>
+            {errorMessage && <Message severity="error" text={errorMessage} />}
 
-            {/* Submit */}
             <Button
               type="submit"
               label="Iniciar sesión"
               icon="pi pi-sign-in"
               className="w-full"
+              loading={submitting}
               disabled={!email || !password}
             />
 
-            {/* Divider */}
             <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-[#2a2a4a]"></div>
-              <span className="text-xs text-[#64748b]">o continuar con</span>
-              <div className="flex-1 h-px bg-[#2a2a4a]"></div>
+              <div className="flex-1 h-px bg-border"></div>
+              <span className="text-xs text-subtle">o continuar con</span>
+              <div className="flex-1 h-px bg-border"></div>
             </div>
 
-            {/* Google */}
             <Button
               type="button"
               label="Google"
@@ -180,12 +201,11 @@ export const Login = () => {
               severity="secondary"
             />
 
-            {/* Sign Up Link */}
-            <div className="text-center text-sm text-[#94a3b8]">
+            <div className="text-center text-sm text-muted">
               ¿No tienes una cuenta?{" "}
               <Link
                 to="/signup"
-                className="font-medium text-purple-400 hover:text-purple-300 transition-colors"
+                className="font-medium text-brand hover:text-brand-hover transition-colors"
               >
                 Regístrate aquí
               </Link>

@@ -1,4 +1,5 @@
-@import "primereact/resources/themes/lara-dark-purple/theme.css";
+/* El tema de PrimeReact NO se importa acá: lo inyecta ThemeProvider como un <link>
+   que se intercambia al cambiar de tema (ver src/theme/ThemeProvider.jsx). */
 @import "primereact/resources/primereact.min.css";
 @import "primeicons/primeicons.css";
 
@@ -6,42 +7,143 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   TOKENS DE COLOR
+   Cada token existe en ambos temas. Los componentes usan siempre
+   el nombre semántico (bg-surface, text-muted...), nunca un hex,
+   así agregar o retocar un tema no obliga a tocar componentes.
+   ============================================================ */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #1a1a2e; /* fondo de la app */
+  --bg-nav: #16162a; /* barra superior */
+  --surface: #1e1e3a; /* tarjetas y paneles */
+  --surface-raised: #24244420; /* paneles translúcidos sobre el fondo */
+  --surface-hover: #ffffff0d;
+  --border: #2a2a4a;
+  --border-strong: #3a3a5a;
+
+  --text-strong: #ffffff; /* títulos */
+  --text: #e2e8f0; /* texto normal */
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8; /* labels */
+  --text-subtle: #64748b; /* ayudas y notas */
+
+  --primary: #a78bfa;
+  --primary-hover: #c4b5fd;
+  --primary-deep: #7c3aed;
+  --accent: #818cf8;
+
+  /* Semánticos de finanzas */
+  --income: #34d399;
+  --expense: #f87171;
+  --savings: #60a5fa;
+  --warning: #fbbf24;
+
+  /* Tintes de las tarjetas de resumen */
+  --tint-income: #34d3990d;
+  --tint-expense: #f871710d;
+  --tint-savings: #60a5fa0d;
+  --tint-primary: #a78bfa0d;
+  --ring-income: #34d3994d;
+  --ring-expense: #f871714d;
+  --ring-savings: #60a5fa4d;
+  --ring-primary: #a78bfa4d;
+
+  --grid-line: #2a2a4a80; /* líneas de los gráficos */
+  --scrollbar: #2a2a4a;
+  --scrollbar-hover: #3a3a5a;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f1f5f9;
+  --bg-nav: #ffffff;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-hover: #0f172a08;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --text-strong: #0f172a;
+  --text: #1e293b;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  /* #94a3b8 sobre blanco da 2.56:1, por debajo del mínimo de WCAG AA. */
+  --text-subtle: #6b7a8f;
+
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-deep: #5b21b6;
+  --accent: #6366f1;
+
+  /* Variantes más oscuras: los tonos 400 no contrastan sobre blanco. */
+  --income: #059669;
+  --expense: #dc2626;
+  --savings: #2563eb;
+  --warning: #d97706;
+
+  --tint-income: #05966910;
+  --tint-expense: #dc262610;
+  --tint-savings: #2563eb10;
+  --tint-primary: #7c3aed10;
+  --ring-income: #05966940;
+  --ring-expense: #dc262640;
+  --ring-savings: #2563eb40;
+  --ring-primary: #7c3aed40;
+
+  --grid-line: #cbd5e180;
+  --scrollbar: #cbd5e1;
+  --scrollbar-hover: #94a3b8;
+}
+
+/* PrimeReact usa sus propias variables: se reapuntan a los tokens de arriba
+   para que sus componentes acompañen el tema sin overrides por componente. */
 :root {
-  --primary-color: #a78bfa;
-  --secondary-color: #7c3aed;
-  --background-color: #1a1a2e;
-  --surface-color: #1e1e3a;
-  --surface-border: #2a2a4a;
-  --text-color: #e2e8f0;
-  --text-color-secondary: #94a3b8;
-  --accent-color: #818cf8;
+  --primary-color: var(--primary);
+  --secondary-color: var(--primary-deep);
+  --background-color: var(--bg);
+  --surface-color: var(--surface);
+  --surface-border: var(--border);
+  --text-color: var(--text);
+  --text-color-secondary: var(--text-muted);
+  --accent-color: var(--accent);
 }
 
 body {
   margin: 0;
-  background-color: var(--background-color);
-  font-family: "Roboto", sans-serif;
-  color: var(--text-color);
+  background-color: var(--bg);
+  /* "Inter var" viene embebida en el tema de PrimeReact: usarla evita bajar
+     Roboto desde Google Fonts (una request bloqueante menos) y que conviva
+     una segunda tipografía que igual se descargaba sin usarse. */
+  font-family: "Inter var", system-ui, sans-serif;
+  color: var(--text);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 /* ===== Card override ===== */
 .card {
-  background: var(--surface-color);
+  background: var(--surface);
   padding: 2rem;
   border-radius: 12px;
   margin-bottom: 1rem;
-  border: 1px solid var(--surface-border);
+  border: 1px solid var(--border);
   box-shadow: none;
 }
 
 /* ===== Botón principal con gradiente ===== */
 .p-button {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%);
   border: none;
 }
 
 .p-button:hover {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 70%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 70%);
   opacity: 0.9;
 }
 
@@ -56,64 +158,65 @@ body {
 
 .p-button.p-button-outlined:hover,
 .p-button.p-button-text:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-hover);
 }
 
-/* ===== Inputs — fondo oscuro consistente ===== */
+/* ===== Inputs — fondo consistente con el tema ===== */
 .p-inputtext,
 .p-dropdown,
 .p-calendar .p-inputtext,
 .p-inputnumber .p-inputtext,
 .p-password input {
-  background: var(--surface-color) !important;
-  border-color: var(--surface-border) !important;
-  color: var(--text-color) !important;
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
 }
 
 .p-inputtext:focus,
 .p-password input:focus {
-  border-color: var(--accent-color) !important;
-  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.15) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent) !important;
 }
 
 .p-inputtext::placeholder {
-  color: var(--text-color-secondary) !important;
+  color: var(--text-muted) !important;
 }
 
 /* ===== Dropdown panel ===== */
 .p-dropdown-panel {
-  background: var(--surface-color) !important;
-  border: 1px solid var(--surface-border) !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
 }
 
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item {
-  color: var(--text-color) !important;
+  color: var(--text) !important;
 }
 
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: var(--surface-hover) !important;
 }
 
 .p-dropdown-panel .p-dropdown-items .p-dropdown-item.p-highlight {
-  background: rgba(129, 140, 248, 0.15) !important;
-  color: var(--accent-color) !important;
+  background: color-mix(in srgb, var(--accent) 18%, transparent) !important;
+  color: var(--accent) !important;
 }
 
 /* ===== Calendar overlay ===== */
 .p-datepicker {
-  background: var(--surface-color) !important;
-  border: 1px solid var(--surface-border) !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
 }
 
 .p-datepicker table td > span.p-highlight {
-  background: var(--accent-color) !important;
+  background: var(--accent) !important;
+  color: #ffffff !important;
 }
 
 /* ===== DataTable ===== */
 .p-datatable .p-datatable-thead > tr > th {
-  background: var(--surface-color) !important;
-  border-color: var(--surface-border) !important;
-  color: var(--text-color-secondary) !important;
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-muted) !important;
   font-weight: 600;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -122,15 +225,16 @@ body {
 
 .p-datatable .p-datatable-tbody > tr {
   background: transparent !important;
-  border-color: var(--surface-border) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
 }
 
 .p-datatable .p-datatable-tbody > tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.02) !important;
+  background: var(--surface-hover) !important;
 }
 
 .p-datatable .p-datatable-tbody > tr:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: var(--surface-hover) !important;
 }
 
 /* ===== Paginator ===== */
@@ -140,47 +244,48 @@ body {
 }
 
 .p-paginator .p-paginator-page.p-highlight {
-  background: var(--accent-color) !important;
-  border-color: var(--accent-color) !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #ffffff !important;
 }
 
 /* ===== Dialog ===== */
 .p-dialog {
-  background: var(--surface-color) !important;
-  border: 1px solid var(--surface-border) !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
 }
 
 .p-dialog .p-dialog-header {
-  background: var(--surface-color) !important;
-  border-bottom: 1px solid var(--surface-border) !important;
-  color: var(--text-color) !important;
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text) !important;
 }
 
 .p-dialog .p-dialog-footer {
-  background: var(--surface-color) !important;
-  border-top: 1px solid var(--surface-border) !important;
+  background: var(--surface) !important;
+  border-top: 1px solid var(--border) !important;
 }
 
 .p-dialog .p-dialog-content {
-  background: var(--surface-color) !important;
-  color: var(--text-color) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
 }
 
 /* ===== TabView ===== */
 .p-tabview .p-tabview-nav {
   background: transparent !important;
-  border-color: var(--surface-border) !important;
+  border-color: var(--border) !important;
 }
 
 .p-tabview .p-tabview-nav li .p-tabview-nav-link {
   background: transparent !important;
-  color: var(--text-color-secondary) !important;
+  color: var(--text-muted) !important;
   border-color: transparent !important;
 }
 
 .p-tabview .p-tabview-nav li.p-highlight .p-tabview-nav-link {
-  color: var(--accent-color) !important;
-  border-color: var(--accent-color) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
 }
 
 .p-tabview .p-tabview-panels {
@@ -194,23 +299,23 @@ body {
 
 /* ===== Checkbox ===== */
 .p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box.p-focus {
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 .p-checkbox:not(.p-checkbox-disabled) .p-checkbox-box.p-highlight {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ===== Links ===== */
 a {
-  color: var(--accent-color);
+  color: var(--accent);
   text-decoration: none;
 }
 
 a:hover {
-  color: var(--primary-color);
+  color: var(--primary);
 }
 
 /* ===== Message/Validation ===== */
@@ -232,20 +337,20 @@ a:hover {
 
 .p-dialog-content::-webkit-scrollbar-thumb,
 .p-dialog-content *::-webkit-scrollbar-thumb {
-  background: #2a2a4a;
+  background: var(--scrollbar);
   border-radius: 3px;
 }
 
 .p-dialog-content::-webkit-scrollbar-thumb:hover,
 .p-dialog-content *::-webkit-scrollbar-thumb:hover {
-  background: #3a3a5a;
+  background: var(--scrollbar-hover);
 }
 
 /* Fix InputNumber currency mode */
 .p-inputnumber .p-inputtext {
-  background: #1e1e3a !important;
-  border: 1px solid #2a2a4a !important;
-  color: #e2e8f0 !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
   width: 100% !important;
 }
 

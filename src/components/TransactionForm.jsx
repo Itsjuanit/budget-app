@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
@@ -7,15 +7,25 @@ import { Button } from "primereact/button";
 import { Message } from "primereact/message";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import { db } from "@/firebaseConfig";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
-import { categories as defaultCategories } from "../utils/categories";
-import { fetchDolarRate, convertUsdToArs, dolarTypeOptions } from "../utils/dolarService";
-import { ToggleButton } from "primereact/togglebutton";
-import { CATEGORY_PALETTE } from "../utils/colors";
+import { useTransactions } from "@/context/TransactionsProvider";
+import { getCategoriesForType, pickColorForNewCategory } from "@/utils/categories";
+import { fetchDolarRate, convertUsdToArs, dolarTypeOptions } from "@/utils/dolarService";
+import { toMonthKey } from "@/utils/months";
+import { toSlug } from "@/utils/slug";
+
+const TYPE_OPTIONS = [
+  { label: "Ingreso", value: "income" },
+  { label: "Gasto", value: "expense" },
+  { label: "Ahorro", value: "savings" },
+];
+
+const TYPE_LABELS = { income: "ingreso", savings: "ahorro", expense: "gasto" };
+
+const MAX_DATE = new Date(new Date().getFullYear(), new Date().getMonth() + 3, 0);
 
 export const TransactionForm = () => {
+  const { addTransaction, addCustomCategory, customCategories } = useTransactions();
+
   const [type, setType] = useState("expense");
   const [amount, setAmount] = useState(null);
   const [category, setCategory] = useState("");
@@ -23,59 +33,40 @@ export const TransactionForm = () => {
   const [date, setDate] = useState(new Date());
   const [installments, setInstallments] = useState(0);
   const [errors, setErrors] = useState({});
-  const [customCategories, setCustomCategories] = useState({
-    income: [],
-    expense: [],
-    savings: [],
-  });
+  const [saving, setSaving] = useState(false);
+
   const [showNewCatDialog, setShowNewCatDialog] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+
   const [usdMode, setUsdMode] = useState(false);
   const [usdAmount, setUsdAmount] = useState(null);
   const [dolarType, setDolarType] = useState("cripto");
   const [dolarRate, setDolarRate] = useState(null);
   const [loadingRate, setLoadingRate] = useState(false);
+
   const toast = useRef(null);
-  const auth = getAuth();
-  const user = auth.currentUser;
+  // Espejo del monto en USD para poder recalcular al cambiar de cotización sin
+  // meter usdAmount en las dependencias (haría re-fetch en cada tecla).
+  const usdAmountRef = useRef(null);
 
-  useEffect(() => {
-    const fetchCustomCategories = async () => {
-      if (!user) return;
-      try {
-        const q = query(collection(db, "customCategories"), where("userId", "==", user.uid));
-        const querySnapshot = await getDocs(q);
-        const income = [];
-        const expense = [];
-        const savings = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.type === "income") income.push({ label: data.label, value: data.value });
-          else if (data.type === "expense") expense.push({ label: data.label, value: data.value });
-          else if (data.type === "savings") savings.push({ label: data.label, value: data.value });
-        });
-        setCustomCategories({ income, expense, savings });
-      } catch (error) {
-        console.error("Error cargando categorías personalizadas:", error);
-      }
-    };
-    fetchCustomCategories();
-  }, [user]);
-
-  // Cargar cotización del dólar
+  // Cotización del dólar, sólo mientras el modo USD está activo.
   useEffect(() => {
     if (!usdMode) return;
+
+    let cancelled = false;
 
     const loadRate = async () => {
       setLoadingRate(true);
       try {
         const rate = await fetchDolarRate(dolarType);
+        if (cancelled) return;
         setDolarRate(rate);
-        // Recalcular si ya hay un monto en USD
-        if (usdAmount) {
-          setAmount(convertUsdToArs(usdAmount, rate.venta));
+        if (usdAmountRef.current) {
+          setAmount(convertUsdToArs(usdAmountRef.current, rate.venta));
         }
       } catch (error) {
+        if (cancelled) return;
         console.error("Error cargando cotización:", error);
         toast.current?.show({
           severity: "error",
@@ -84,26 +75,47 @@ export const TransactionForm = () => {
           life: 3000,
         });
       } finally {
-        setLoadingRate(false);
+        if (!cancelled) setLoadingRate(false);
       }
     };
 
     loadRate();
+    return () => {
+      cancelled = true;
+    };
   }, [usdMode, dolarType]);
 
-  const mergedCategories = {
-    income: [...defaultCategories.income, ...customCategories.income],
-    expense: [...defaultCategories.expense, ...customCategories.expense],
-    savings: [...(defaultCategories.savings || []), ...customCategories.savings],
+  const categoryOptions = getCategoriesForType(type, customCategories).map((c) => ({
+    label: c.label,
+    value: c.value,
+  }));
+
+  const isCreditCard = category === "tarjeta-credito";
+
+  const exitUsdMode = () => {
+    setUsdMode(false);
+    setUsdAmount(null);
+    usdAmountRef.current = null;
+    setDolarRate(null);
+  };
+
+  const resetForm = () => {
+    setAmount(null);
+    setCategory("");
+    setDescription("");
+    setDate(new Date());
+    setInstallments(0);
+    setErrors({});
+    exitUsdMode();
   };
 
   const validateFields = () => {
     const newErrors = {};
-    if (!amount) newErrors.amount = "El monto es obligatorio.";
+    if (!amount || amount <= 0) newErrors.amount = "El monto debe ser mayor a cero.";
     if (!category) newErrors.category = "La categoría es obligatoria.";
     if (!description.trim()) newErrors.description = "La descripción es obligatoria.";
     if (!date) newErrors.date = "La fecha es obligatoria.";
-    if (category === "tarjeta-credito" && installments < 0)
+    if (isCreditCard && installments < 0)
       newErrors.installments = "Las cuotas no pueden ser negativas.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -111,44 +123,22 @@ export const TransactionForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateFields()) return;
+    if (!validateFields() || saving) return;
 
-    if (!user) {
-      toast.current.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No estás autenticado. Por favor, iniciá sesión.",
-        life: 3000,
-      });
-      return;
-    }
-
-    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-
-    const transaction = {
-      userId: user.uid,
-      type,
-      amount,
-      category,
-      description,
-      date: date.toISOString(),
-      monthYear,
-      installments: category === "tarjeta-credito" ? installments : 0,
-      installmentsRemaining: category === "tarjeta-credito" ? installments : 0,
-    };
-
+    setSaving(true);
     try {
-      await addDoc(collection(db, "transactions"), transaction);
-      setAmount(null);
-      setCategory("");
-      setDescription("");
-      setDate(new Date());
-      setInstallments(0);
-      setErrors({});
-      setUsdMode(false);
-      setUsdAmount(null);
-      setDolarRate(null);
-      toast.current.show({
+      await addTransaction({
+        type,
+        amount,
+        category,
+        description: description.trim(),
+        date: date.toISOString(),
+        monthYear: toMonthKey(date),
+        installments: isCreditCard ? installments : 0,
+        installmentsRemaining: isCreditCard ? installments : 0,
+      });
+      resetForm();
+      toast.current?.show({
         severity: "success",
         summary: "Éxito",
         detail: "Transacción agregada correctamente.",
@@ -156,39 +146,46 @@ export const TransactionForm = () => {
       });
     } catch (error) {
       console.error("Error guardando la transacción:", error);
-      toast.current.show({
+      toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "Hubo un problema al guardar la transacción.",
         life: 3000,
       });
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleSaveNewCategory = async () => {
-    if (!newCatName.trim()) return;
+    const label = newCatName.trim();
+    if (!label || creatingCategory) return;
 
+    const value = toSlug(label);
+
+    if (getCategoriesForType(type, customCategories).some((c) => c.value === value)) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Ya existe",
+        detail: "Ya tenés una categoría con ese nombre.",
+        life: 3000,
+      });
+      return;
+    }
+
+    setCreatingCategory(true);
     try {
-      // Calcular color basado en cantidad de categorías existentes del mismo tipo
-      const existingCount = mergedCategories[type]?.length || 0;
-      const color = CATEGORY_PALETTE[existingCount % CATEGORY_PALETTE.length];
-      const newCategory = {
-        userId: user.uid,
+      await addCustomCategory({
         type,
-        label: newCatName,
-        value: newCatName.toLowerCase().replace(/\s+/g, "-"),
-        color,
-      };
-
-      await addDoc(collection(db, "customCategories"), newCategory);
-      setCustomCategories((prev) => ({
-        ...prev,
-        [type]: [...prev[type], { label: newCategory.label, value: newCategory.value }],
-      }));
-      setCategory(newCategory.value);
+        label,
+        value,
+        color: pickColorForNewCategory(type, customCategories),
+      });
+      // El listener del provider trae la categoría nueva; acá sólo se la deja seleccionada.
+      setCategory(value);
       setNewCatName("");
       setShowNewCatDialog(false);
-      toast.current.show({
+      toast.current?.show({
         severity: "success",
         summary: "Categoría creada",
         detail: "La nueva categoría ha sido agregada.",
@@ -196,70 +193,61 @@ export const TransactionForm = () => {
       });
     } catch (error) {
       console.error("Error creando categoría:", error);
-      toast.current.show({
+      toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "No se pudo crear la categoría.",
         life: 3000,
       });
+    } finally {
+      setCreatingCategory(false);
     }
   };
 
-  const categoryOptions = mergedCategories[type]?.map((c) => ({
-    label: c.label,
-    value: c.value,
-  }));
-
   const handleUsdChange = (value) => {
     setUsdAmount(value);
-    if (value && dolarRate) {
-      setAmount(convertUsdToArs(value, dolarRate.venta));
-    } else {
-      setAmount(null);
-    }
+    usdAmountRef.current = value;
+    setAmount(value && dolarRate ? convertUsdToArs(value, dolarRate.venta) : null);
   };
 
   return (
     <>
       <form
         onSubmit={handleSubmit}
-        className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5"
+        className="rounded-xl border border-border bg-surface-raised p-5"
       >
         <Toast ref={toast} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[#94a3b8]">Tipo</label>
+            <label className="text-sm font-medium text-muted" htmlFor="new-type">
+              Tipo
+            </label>
             <Dropdown
+              inputId="new-type"
               value={type}
-              options={[
-                { label: "Ingreso", value: "income" },
-                { label: "Gasto", value: "expense" },
-                { label: "Ahorro", value: "savings" },
-              ]}
+              options={TYPE_OPTIONS}
               onChange={(e) => {
+                if (e.value === type) return;
                 setType(e.value);
                 setCategory("");
-                if (e.value !== type) {
-                  setUsdMode(false);
-                  setUsdAmount(null);
-                  setDolarRate(null);
-                }
+                exitUsdMode();
               }}
               className="w-full"
             />
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[#94a3b8]">Monto</label>
+            <label className="text-sm font-medium text-muted" htmlFor="new-amount">
+              Monto
+            </label>
             <InputNumber
+              inputId="new-amount"
               value={amount}
               onValueChange={(e) => {
                 setAmount(e.value);
-                if (usdMode) {
-                  setUsdMode(false);
-                  setUsdAmount(null);
-                }
+                // Escribir el monto a mano descarta la conversión desde USD.
+                if (usdMode) exitUsdMode();
               }}
               mode="currency"
               currency="ARS"
@@ -269,7 +257,7 @@ export const TransactionForm = () => {
             {!usdMode && (
               <button
                 type="button"
-                className="text-xs text-purple-400 hover:text-purple-300 text-left transition-colors"
+                className="text-xs text-brand hover:text-brand-hover text-left transition-colors"
                 onClick={() => setUsdMode(true)}
               >
                 <i className="pi pi-dollar mr-1" style={{ fontSize: "0.65rem" }} />
@@ -277,17 +265,14 @@ export const TransactionForm = () => {
               </button>
             )}
             {usdMode && (
-              <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 flex flex-col gap-2.5">
+              <div className="rounded-lg border border-ring-primary bg-tint-primary p-3 flex flex-col gap-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-purple-400">Conversión USD → ARS</span>
+                  <span className="text-xs font-medium text-brand">Conversión USD → ARS</span>
                   <button
                     type="button"
-                    className="text-[#64748b] hover:text-[#94a3b8] transition-colors"
-                    onClick={() => {
-                      setUsdMode(false);
-                      setUsdAmount(null);
-                      setDolarRate(null);
-                    }}
+                    className="text-subtle hover:text-muted transition-colors"
+                    onClick={exitUsdMode}
+                    aria-label="Cerrar conversión USD"
                   >
                     <i className="pi pi-times" style={{ fontSize: "0.7rem" }} />
                   </button>
@@ -309,13 +294,19 @@ export const TransactionForm = () => {
                     className="w-36 flex-shrink-0"
                   />
                 </div>
-                {dolarRate && (
+                {loadingRate && (
+                  <div className="flex items-center gap-2 text-xs text-muted">
+                    <i className="pi pi-spin pi-spinner" />
+                    Buscando cotización...
+                  </div>
+                )}
+                {dolarRate && !loadingRate && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#64748b]">
+                    <span className="text-subtle">
                       {dolarRate.nombre}: ${dolarRate.venta.toLocaleString("es-AR")}
                     </span>
                     {usdAmount > 0 && (
-                      <span className="font-bold text-emerald-400">
+                      <span className="font-bold text-income">
                         ={" "}
                         {new Intl.NumberFormat("es-AR", {
                           style: "currency",
@@ -323,7 +314,6 @@ export const TransactionForm = () => {
                         }).format(convertUsdToArs(usdAmount, dolarRate.venta))}
                       </span>
                     )}
-                    {loadingRate && <i className="pi pi-spin pi-spinner text-[#94a3b8]" />}
                   </div>
                 )}
               </div>
@@ -332,9 +322,12 @@ export const TransactionForm = () => {
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[#94a3b8]">Categoría</label>
+            <label className="text-sm font-medium text-muted" htmlFor="new-category">
+              Categoría
+            </label>
             <div className="flex gap-2">
               <Dropdown
+                inputId="new-category"
                 value={category}
                 options={categoryOptions}
                 onChange={(e) => setCategory(e.value)}
@@ -348,6 +341,7 @@ export const TransactionForm = () => {
                 severity="secondary"
                 tooltip="Crear categoría"
                 tooltipOptions={{ position: "top" }}
+                aria-label="Crear categoría"
                 onClick={() => setShowNewCatDialog(true)}
               />
             </div>
@@ -355,25 +349,31 @@ export const TransactionForm = () => {
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-[#94a3b8]">Fecha</label>
+            <label className="text-sm font-medium text-muted" htmlFor="new-date">
+              Fecha
+            </label>
             <Calendar
+              inputId="new-date"
               value={date}
               onChange={(e) => setDate(e.value)}
               showIcon
               className="w-full"
               dateFormat="dd/mm/yy"
               locale="es"
-              maxDate={new Date(new Date().getFullYear(), new Date().getMonth() + 3, 0)}
+              maxDate={MAX_DATE}
             />
             {errors.date && <Message severity="error" text={errors.date} />}
           </div>
 
-          {category === "tarjeta-credito" && (
+          {isCreditCard && (
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-[#94a3b8]">Cuotas</label>
+              <label className="text-sm font-medium text-muted" htmlFor="new-installments">
+                Cuotas
+              </label>
               <InputNumber
+                inputId="new-installments"
                 value={installments}
-                onValueChange={(e) => setInstallments(e.value)}
+                onValueChange={(e) => setInstallments(e.value || 0)}
                 min={0}
                 className="w-full"
               />
@@ -382,8 +382,11 @@ export const TransactionForm = () => {
           )}
 
           <div className="flex flex-col gap-2 md:col-span-2">
-            <label className="text-sm font-medium text-[#94a3b8]">Descripción</label>
+            <label className="text-sm font-medium text-muted" htmlFor="new-description">
+              Descripción
+            </label>
             <InputText
+              id="new-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full"
@@ -400,16 +403,16 @@ export const TransactionForm = () => {
             icon="pi pi-plus"
             className="p-button-sm"
             severity="success"
+            loading={saving}
             disabled={!amount || !category || !description.trim() || !date}
           />
         </div>
       </form>
 
-      {/* Dialog nueva categoría */}
       <Dialog
         header={
           <div className="flex items-center gap-2">
-            <i className="pi pi-tag text-purple-400"></i>
+            <i className="pi pi-tag text-brand"></i>
             <span>Crear nueva categoría</span>
           </div>
         }
@@ -424,6 +427,7 @@ export const TransactionForm = () => {
               className="p-button-outlined p-button-sm"
               severity="secondary"
               onClick={() => setShowNewCatDialog(false)}
+              disabled={creatingCategory}
             />
             <Button
               label="Guardar"
@@ -431,25 +435,27 @@ export const TransactionForm = () => {
               className="p-button-sm"
               severity="success"
               onClick={handleSaveNewCategory}
+              loading={creatingCategory}
               disabled={!newCatName.trim()}
             />
           </div>
         }
       >
         <div className="flex flex-col gap-3 pt-2">
-          <label className="text-sm font-medium text-[#94a3b8]">Nombre de la categoría</label>
+          <label className="text-sm font-medium text-muted" htmlFor="new-cat-name">
+            Nombre de la categoría
+          </label>
           <InputText
+            id="new-cat-name"
             value={newCatName}
             onChange={(e) => setNewCatName(e.target.value)}
             placeholder="Ej: Mascota, Gimnasio..."
             className="w-full"
             autoFocus
           />
-          <p className="text-xs text-[#64748b]">
+          <p className="text-xs text-subtle">
             Se creará como categoría de{" "}
-            <span className="font-medium text-[#94a3b8]">
-              {type === "income" ? "ingreso" : type === "savings" ? "ahorro" : "gasto"}
-            </span>
+            <span className="font-medium text-muted">{TYPE_LABELS[type]}</span>
           </p>
         </div>
       </Dialog>

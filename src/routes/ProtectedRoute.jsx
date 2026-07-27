@@ -1,4 +1,3 @@
-import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ProgressSpinner } from "primereact/progressspinner";
@@ -14,7 +13,7 @@ export const ProtectedRoute = ({ children }) => {
           strokeWidth="4"
           animationDuration=".8s"
         />
-        <p className="text-[#94a3b8] text-sm">Verificando sesión...</p>
+        <p className="text-muted text-sm">Verificando sesión...</p>
       </div>
     );
   }

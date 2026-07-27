@@ -3,7 +3,8 @@ import "jspdf-autotable";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatCurrency } from "./format";
-import { categories as defaultCategories } from "./categories";
+import { getCategoryLabel } from "./categories";
+import { monthKeyToDate } from "./months";
 
 // Paleta de colores consistente con la app
 const COLORS = {
@@ -18,20 +19,11 @@ const COLORS = {
 };
 
 /**
- * Obtiene el label legible de una categoría a partir de su value.
- */
-const getCategoryLabel = (value) => {
-  const allCategories = [...defaultCategories.income, ...defaultCategories.expense];
-  return allCategories.find((c) => c.value === value)?.label || value;
-};
-
-/**
  * Genera el nombre del archivo PDF.
  */
 const generateFileName = (selectedMonth) => {
-  const [year, month] = selectedMonth.split("-");
-  const date = new Date(parseInt(year), parseInt(month) - 1);
-  const monthName = format(date, "MMMM", { locale: es });
+  const [year] = selectedMonth.split("-");
+  const monthName = format(monthKeyToDate(selectedMonth), "MMMM", { locale: es });
   return `PAGATODO-${monthName}-${year}.pdf`;
 };
 
@@ -64,9 +56,7 @@ const drawHeader = (doc, selectedMonth) => {
   doc.text("PAGATODO", 14, 22);
 
   // Subtítulo — mes y año
-  const [year, month] = selectedMonth.split("-");
-  const date = new Date(parseInt(year), parseInt(month) - 1);
-  const monthLabel = format(date, "MMMM yyyy", { locale: es });
+  const monthLabel = format(monthKeyToDate(selectedMonth), "MMMM yyyy", { locale: es });
   const capitalizedMonth = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
   doc.setFontSize(11);
@@ -138,13 +128,15 @@ const drawSummaryCards = (doc, data, startY) => {
 /**
  * Dibuja la tabla de transacciones.
  */
-const drawTransactionsTable = (doc, transactions, startY) => {
+const drawTransactionsTable = (doc, transactions, startY, customCategories) => {
   const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const tableRows = sortedTransactions.map((t) => [
     format(new Date(t.date), "dd/MM/yyyy"),
     t.type === "income" ? "INGRESO" : t.type === "savings" ? "AHORRO" : "GASTO",
-    getCategoryLabel(t.category),
+    // Ahora resuelve también ahorros y categorías personalizadas, que antes
+    // aparecían con el identificador crudo ("mi-categoria").
+    getCategoryLabel(t.category, customCategories),
     t.description || "—",
     formatCurrency(t.amount),
   ]);
@@ -268,7 +260,7 @@ const drawFooter = (doc) => {
 /**
  * Genera y descarga el PDF del reporte mensual.
  */
-export const generatePDF = (data, selectedMonth) => {
+export const generatePDF = (data, selectedMonth, customCategories) => {
   const doc = new jsPDF();
   const fileName = generateFileName(selectedMonth);
 
@@ -278,7 +270,7 @@ export const generatePDF = (data, selectedMonth) => {
   // Secciones
   drawHeader(doc, selectedMonth);
   const afterSummary = drawSummaryCards(doc, data, 50);
-  const afterTable = drawTransactionsTable(doc, data.transactions, afterSummary);
+  const afterTable = drawTransactionsTable(doc, data.transactions, afterSummary, customCategories);
   drawCreditCardSummary(doc, data.transactions, afterTable);
 
   // Footer en todas las páginas

@@ -5,108 +5,108 @@ const fetch = require("node-fetch");
 admin.initializeApp();
 const db = admin.firestore();
 
+const categoryData = require("./categories.json");
+
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const AUTHORIZED_USERS_COLLECTION = "telegramUsers";
 const PENDING_COLLECTION = "telegramPending";
 
-const CATEGORY_ALIASES = {
-  super: "supermercado",
-  supermercado: "supermercado",
-  mercado: "supermercado",
-  comida: "comida",
-  comer: "comida",
-  restaurante: "comida",
-  salida: "salidas",
-  salidas: "salidas",
-  bar: "salidas",
-  joda: "salidas",
-  transporte: "transporte",
-  uber: "transporte",
-  taxi: "transporte",
-  bondi: "transporte",
-  nafta: "combustible",
-  combustible: "combustible",
-  alquiler: "alquiler",
-  luz: "servicios",
-  gas: "servicios",
-  agua: "servicios",
-  servicios: "servicios",
-  internet: "internet",
-  celular: "celulares",
-  celulares: "celulares",
-  telefono: "celulares",
-  spotify: "spotify",
-  netflix: "netflix",
-  disney: "disney-plus",
-  youtube: "youtube-premium",
-  ropa: "compras",
-  compras: "compras",
-  compra: "compras",
-  gym: "actividad-fisica",
-  gimnasio: "actividad-fisica",
-  padel: "actividad-fisica",
-  deporte: "actividad-fisica",
-  actividad: "actividad-fisica",
-  tarjeta: "tarjeta-credito",
-  credito: "tarjeta-credito",
-  transferencia: "transferencias",
-  transferencias: "transferencias",
-  circulo: "circulo",
-  salud: "salud",
-  medico: "salud",
-  farmacia: "salud",
-  educacion: "educacion",
-  curso: "educacion",
-  libro: "educacion",
-  regalo: "regalos",
-  regalos: "regalos",
-  prestamo: "prestamos",
-  prestamos: "prestamos",
-  dibujo: "dibujo",
-  hobbies: "hobbies",
-  hobby: "hobbies",
-  otros: "otros-gastos",
-  sueldo: "salario",
-  salario: "salario",
-  freelance: "freelance",
-  extra: "otros-ingresos",
-  ahorro: "ahorros",
-  ahorros: "ahorros",
-  inversion: "inversiones",
-  inversiones: "inversiones",
-};
+/** Cuánto vive una confirmación pendiente antes de expirar. */
+const PENDING_TTL_MS = 60 * 1000;
 
-const CATEGORY_TYPE_MAP = {
-  salario: "income",
-  freelance: "income",
-  "otros-ingresos": "income",
-  ahorros: "savings",
-  inversiones: "savings",
-};
+const TYPE_EMOJI = { income: "💰", expense: "💸", savings: "🏦" };
+const TYPE_LABEL = { income: "Ingreso", expense: "Gasto", savings: "Ahorro" };
 
-async function sendMessage(chatId, text, options = {}) {
-  await fetch(`${TELEGRAM_API}/sendMessage`, {
+/**
+ * Escapa los caracteres que Telegram interpreta como HTML.
+ *
+ * Sin esto, una descripción con "<" o "&" (ej: "Bar & Co") hacía que la API
+ * rechazara el mensaje con un 400 y el usuario no recibía ninguna respuesta.
+ */
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Los alias y las categorías vienen de shared/categories.json (fuente única
+// compartida con la app). functions/categories.json es una copia generada por
+// `npm run sync:categories`, que corre automáticamente en el predeploy.
+const CATEGORY_ALIASES = categoryData.aliases;
+
+// Todo lo que no sea ingreso o ahorro se trata como gasto.
+const CATEGORY_TYPE_MAP = Object.fromEntries([
+  ...categoryData.income.map((c) => [c.value, "income"]),
+  ...categoryData.savings.map((c) => [c.value, "savings"]),
+]);
+
+// Set de todos los identificadores válidos por defecto, para rechazar categorías inventadas.
+const KNOWN_CATEGORY_VALUES = new Set(
+  [...categoryData.income, ...categoryData.savings, ...categoryData.expense].map((c) => c.value)
+);
+
+// Labels legibles por identificador (ej: "disney-plus" -> "Disney+").
+const CATEGORY_LABELS = Object.fromEntries(
+  [...categoryData.income, ...categoryData.savings, ...categoryData.expense].map((c) => [
+    c.value,
+    c.label,
+  ])
+);
+
+/**
+ * Llama a la API de Telegram y verifica la respuesta.
+ *
+ * Antes ninguna de estas llamadas miraba el resultado: si Telegram rechazaba el
+ * mensaje (HTML inválido, chat bloqueado) fallaba en silencio y el usuario se
+ * quedaba sin respuesta y sin pista de por qué.
+ */
+async function callTelegram(method, payload) {
+  const response = await fetch(`${TELEGRAM_API}/${method}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...options }),
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.ok) {
+    throw new Error(
+      `Telegram ${method} falló (${response.status}): ${result?.description || "sin detalle"}`
+    );
+  }
+  return result;
+}
+
+async function sendMessage(chatId, text, options = {}) {
+  return callTelegram("sendMessage", {
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+    ...options,
   });
 }
 
 async function editMessage(chatId, messageId, text) {
-  await fetch(`${TELEGRAM_API}/editMessageText`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, parse_mode: "HTML" }),
+  return callTelegram("editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: "HTML",
   });
 }
 
 async function answerCallback(callbackQueryId) {
-  await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ callback_query_id: callbackQueryId }),
-  });
+  return callTelegram("answerCallbackQuery", { callback_query_id: callbackQueryId });
+}
+
+/** Último recurso: avisar al usuario en texto plano, sin que un fallo acá tire la función. */
+async function sendPlainError(chatId, text) {
+  try {
+    await callTelegram("sendMessage", { chat_id: chatId, text });
+  } catch (error) {
+    console.error("No se pudo avisar del error al usuario:", error);
+  }
 }
 
 async function getFirebaseUid(chatId) {
@@ -127,25 +127,42 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
-function getCategoryLabel(value) {
-  return value.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+function getCategoryLabel(value, customLabels = {}) {
+  return (
+    CATEGORY_LABELS[value] ||
+    customLabels[value] ||
+    value.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+  );
 }
 
+/**
+ * Resuelve el texto que escribió el usuario a una categoría existente.
+ *
+ * Devuelve null si no la reconoce: antes se usaba el texto crudo como categoría,
+ * lo que creaba categorías fantasma que después aparecían en gris en la app.
+ */
 async function resolveCategory(input, firebaseUid) {
   const normalized = input.toLowerCase().trim();
-  if (CATEGORY_ALIASES[normalized]) {
-    const category = CATEGORY_ALIASES[normalized];
-    return { category, type: CATEGORY_TYPE_MAP[category] || "expense" };
+
+  const aliased = CATEGORY_ALIASES[normalized];
+  if (aliased) {
+    return { category: aliased, type: CATEGORY_TYPE_MAP[aliased] || "expense" };
   }
+
+  if (KNOWN_CATEGORY_VALUES.has(normalized)) {
+    return { category: normalized, type: CATEGORY_TYPE_MAP[normalized] || "expense" };
+  }
+
   const snap = await db.collection("customCategories").where("userId", "==", firebaseUid).get();
   let match = null;
   snap.forEach((doc) => {
     const d = doc.data();
     if (d.label.toLowerCase() === normalized || d.value.toLowerCase() === normalized) {
-      match = { category: d.value, type: d.type };
+      match = { category: d.value, type: d.type || "expense" };
     }
   });
-  return match || { category: normalized, type: "expense" };
+
+  return match;
 }
 
 async function fetchDolarRate(type = "cripto") {
@@ -156,34 +173,68 @@ async function fetchDolarRate(type = "cripto") {
   return { venta: data.venta, nombre: type.charAt(0).toUpperCase() + type.slice(1) };
 }
 
+const MAX_AMOUNT = 1_000_000_000;
+
+/**
+ * Interpreta un monto escrito como se escribe en Argentina.
+ *   "5000" → 5000 · "5.000" → 5000 · "5.000,50" → 5000.5 · "5,5" → 5.5
+ *
+ * Antes se usaba parseFloat directo, así que "5.000" se cargaba como $5.
+ */
+function parseAmount(raw) {
+  const text = String(raw).trim();
+  if (!/^[\d.,]+$/.test(text)) return null;
+
+  const lastComma = text.lastIndexOf(",");
+  const lastDot = text.lastIndexOf(".");
+  let normalized;
+
+  if (lastComma > -1 && lastDot > -1) {
+    // El separador decimal es el que aparece último; el otro es de miles.
+    normalized =
+      lastComma > lastDot ? text.replace(/\./g, "").replace(",", ".") : text.replace(/,/g, "");
+  } else if (lastComma > -1) {
+    // Una sola coma: decimal si deja 1-2 dígitos ("5,5"), separador de miles si no.
+    normalized = text.length - lastComma - 1 <= 2 ? text.replace(",", ".") : text.replace(/,/g, "");
+  } else if (lastDot > -1) {
+    normalized = text.length - lastDot - 1 <= 2 ? text : text.replace(/\./g, "");
+  } else {
+    normalized = text;
+  }
+
+  const value = Number(normalized);
+  if (!Number.isFinite(value) || value <= 0 || value > MAX_AMOUNT) return null;
+  return value;
+}
+
 async function parseTransaction(text, firebaseUid) {
   let explicitType = null;
   let cleanText = text.trim();
 
   if (cleanText.startsWith("/gasto ")) {
     explicitType = "expense";
-    cleanText = cleanText.replace("/gasto ", "");
+    cleanText = cleanText.slice("/gasto ".length);
   } else if (cleanText.startsWith("/ingreso ")) {
     explicitType = "income";
-    cleanText = cleanText.replace("/ingreso ", "");
+    cleanText = cleanText.slice("/ingreso ".length);
   } else if (cleanText.startsWith("/ahorro ")) {
     explicitType = "savings";
-    cleanText = cleanText.replace("/ahorro ", "");
+    cleanText = cleanText.slice("/ahorro ".length);
   } else if (/^\d/.test(cleanText)) {
     explicitType = "expense";
   } else {
     return null;
   }
 
-  const parts = cleanText.split(/\s+/);
+  const parts = cleanText.trim().split(/\s+/);
   if (parts.length < 2) return null;
 
   const amountStr = parts[0];
-  const usdMatch = amountStr.match(/^(\d+(?:\.\d+)?)(usd|USD|dolar|dolares|dol)$/i);
+  const usdMatch = amountStr.match(/^([\d.,]+)(usd|dolar|dolares|dol)$/i);
 
   if (usdMatch) {
-    const usdAmount = parseFloat(usdMatch[1]);
-    if (isNaN(usdAmount) || usdAmount <= 0) return null;
+    const usdAmount = parseAmount(usdMatch[1]);
+    if (usdAmount === null) return null;
 
     const dolarTypes = ["cripto", "blue", "mep", "tarjeta"];
     let dolarType = "cripto";
@@ -196,34 +247,38 @@ async function parseTransaction(text, firebaseUid) {
 
     if (parts.length <= catStart) return null;
 
+    let rate;
     try {
-      const rate = await fetchDolarRate(dolarType);
-      const arsAmount = Math.round(usdAmount * rate.venta);
-      const resolved = await resolveCategory(parts[catStart], firebaseUid);
-      const description =
-        parts.slice(catStart + 1).join(" ") || getCategoryLabel(resolved.category);
-      return {
-        type: explicitType || resolved.type,
-        amount: arsAmount,
-        category: resolved.category,
-        description,
-        usdInfo: { usdAmount, dolarType, rate: rate.venta, arsAmount },
-      };
-    } catch (e) {
+      rate = await fetchDolarRate(dolarType);
+    } catch (error) {
+      console.error("Error obteniendo cotización:", error);
       return { error: "No pude obtener la cotización del dólar. Intentá de nuevo." };
     }
+
+    const resolved = await resolveCategory(parts[catStart], firebaseUid);
+    if (!resolved) return { unknownCategory: parts[catStart] };
+
+    const arsAmount = Math.round(usdAmount * rate.venta);
+    return {
+      type: explicitType || resolved.type,
+      amount: arsAmount,
+      category: resolved.category,
+      description: parts.slice(catStart + 1).join(" ") || getCategoryLabel(resolved.category),
+      usdInfo: { usdAmount, dolarType, rate: rate.venta, arsAmount },
+    };
   }
 
-  const amount = parseFloat(amountStr);
-  if (isNaN(amount) || amount <= 0) return null;
+  const amount = parseAmount(amountStr);
+  if (amount === null) return null;
 
   const resolved = await resolveCategory(parts[1], firebaseUid);
-  const description = parts.slice(2).join(" ") || getCategoryLabel(resolved.category);
+  if (!resolved) return { unknownCategory: parts[1] };
+
   return {
     type: explicitType || resolved.type,
     amount,
     category: resolved.category,
-    description,
+    description: parts.slice(2).join(" ") || getCategoryLabel(resolved.category),
     usdInfo: null,
   };
 }
@@ -244,7 +299,7 @@ async function handleVincular(chatId, text) {
   });
   await sendMessage(
     chatId,
-    `✅ <b>¡Cuenta vinculada!</b>\n\nFirebase UID: <code>${parts[1]}</code>\nEscribí /help para ver los comandos.`
+    `✅ <b>¡Cuenta vinculada!</b>\n\nFirebase UID: <code>${escapeHtml(parts[1])}</code>\nEscribí /help para ver los comandos.`
   );
 }
 
@@ -256,17 +311,20 @@ async function handleResumen(chatId, firebaseUid) {
     .where("monthYear", "==", monthYear)
     .get();
 
+  const customLabels = await getCustomCategoryLabels(firebaseUid);
+
   let inc = 0,
     exp = 0,
     sav = 0;
   const byCat = {};
   snap.forEach((doc) => {
     const t = doc.data();
-    if (t.type === "income") inc += t.amount;
+    const amount = Number(t.amount) || 0;
+    if (t.type === "income") inc += amount;
     else if (t.type === "expense") {
-      exp += t.amount;
-      byCat[t.category] = (byCat[t.category] || 0) + t.amount;
-    } else if (t.type === "savings") sav += t.amount;
+      exp += amount;
+      byCat[t.category] = (byCat[t.category] || 0) + amount;
+    } else if (t.type === "savings") sav += amount;
   });
 
   const avail = inc - exp - sav;
@@ -278,7 +336,7 @@ async function handleResumen(chatId, firebaseUid) {
   const top = Object.entries(byCat)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([c, a]) => `  • ${getCategoryLabel(c)}: ${formatCurrency(a)}`)
+    .map(([c, a]) => `  • ${escapeHtml(getCategoryLabel(c, customLabels))}: ${formatCurrency(a)}`)
     .join("\n");
 
   await sendMessage(
@@ -292,55 +350,46 @@ async function handleResumen(chatId, firebaseUid) {
   );
 }
 
-async function handleCategorias(chatId, firebaseUid) {
-  const gastos = [
-    "Actividad física",
-    "Alquiler",
-    "Celulares",
-    "Círculo",
-    "Combustible",
-    "Comida",
-    "Compras",
-    "Dibujo",
-    "Disney+",
-    "Educación",
-    "Hobbies",
-    "Internet",
-    "Netflix",
-    "Otros gastos",
-    "Préstamos",
-    "Regalos",
-    "Salidas",
-    "Salud",
-    "Servicios",
-    "Spotify",
-    "Supermercado",
-    "Tarjeta de crédito",
-    "Transferencias",
-    "Transporte",
-    "YouTube Premium",
-  ];
-  const ingresos = ["Freelance", "Otros ingresos", "Salario"];
-  const ahorros = ["Ahorros", "Inversiones"];
+/** Mapa value → label de las categorías propias del usuario. */
+async function getCustomCategoryLabels(firebaseUid) {
+  const snap = await db.collection("customCategories").where("userId", "==", firebaseUid).get();
+  const labels = {};
+  snap.forEach((d) => {
+    const data = d.data();
+    labels[data.value] = data.label;
+  });
+  return labels;
+}
 
-  const cSnap = await db.collection("customCategories").where("userId", "==", firebaseUid).get();
+async function handleCategorias(chatId, firebaseUid) {
+  const snap = await db.collection("customCategories").where("userId", "==", firebaseUid).get();
   const custom = { expense: [], income: [], savings: [] };
-  cSnap.forEach((d) => {
-    const x = d.data();
-    if (custom[x.type]) custom[x.type].push(x.label);
+  snap.forEach((d) => {
+    const data = d.data();
+    if (custom[data.type]) custom[data.type].push(data.label);
   });
 
-  let msg = `📋 <b>Categorías</b>\n\n<b>💸 Gastos:</b>\n${gastos.map((c) => `• ${c}`).join("\n")}`;
-  if (custom.expense.length)
-    msg += `\n${custom.expense.map((c) => `• <i>${c} (custom)</i>`).join("\n")}`;
-  msg += `\n\n<b>💰 Ingresos:</b>\n${ingresos.map((c) => `• ${c}`).join("\n")}`;
-  if (custom.income.length)
-    msg += `\n${custom.income.map((c) => `• <i>${c} (custom)</i>`).join("\n")}`;
-  msg += `\n\n<b>🏦 Ahorros:</b>\n${ahorros.map((c) => `• ${c}`).join("\n")}`;
-  if (custom.savings.length)
-    msg += `\n${custom.savings.map((c) => `• <i>${c} (custom)</i>`).join("\n")}`;
-  msg += `\n\n<b>Aliases:</b> super, nafta, gym, padel, uber, bondi, bar, luz, gas, agua`;
-  msg += `\n\n<b>💵 USD:</b> <code>100usd super</code> o <code>100usd tarjeta netflix</code>`;
+  // La lista sale del archivo compartido con la app: antes estaba escrita a mano
+  // acá y se desactualizaba en cuanto se tocaba categories.js.
+  const section = (emoji, title, defaults, extra) => {
+    const lines = defaults.map((c) => `• ${escapeHtml(c.label)}`);
+    extra.forEach((label) => lines.push(`• <i>${escapeHtml(label)} (custom)</i>`));
+    return `<b>${emoji} ${title}:</b>\n${lines.join("\n")}`;
+  };
+
+  const msg = [
+    "📋 <b>Categorías</b>",
+    "",
+    section("💸", "Gastos", categoryData.expense, custom.expense),
+    "",
+    section("💰", "Ingresos", categoryData.income, custom.income),
+    "",
+    section("🏦", "Ahorros", categoryData.savings, custom.savings),
+    "",
+    "<b>Aliases:</b> super, nafta, gym, padel, uber, bondi, bar, luz, gas, agua",
+    "",
+    "<b>💵 USD:</b> <code>100usd super</code> o <code>100usd tarjeta netflix</code>",
+  ].join("\n");
 
   await sendMessage(chatId, msg);
 }
@@ -361,8 +410,7 @@ async function handleEliminar(chatId, firebaseUid) {
 
   const doc = snap.docs[0];
   const t = doc.data();
-  const emoji = { income: "💰", expense: "💸", savings: "🏦" };
-  const label = { income: "Ingreso", expense: "Gasto", savings: "Ahorro" };
+  const customLabels = await getCustomCategoryLabels(firebaseUid);
 
   await db
     .collection(PENDING_COLLECTION)
@@ -370,12 +418,12 @@ async function handleEliminar(chatId, firebaseUid) {
     .set({
       action: "delete",
       transactionId: doc.id,
-      expiresAt: new Date(Date.now() + 60000).toISOString(),
+      expiresAt: new Date(Date.now() + PENDING_TTL_MS).toISOString(),
     });
 
   await sendMessage(
     chatId,
-    `🗑 <b>¿Eliminar?</b>\n\n${emoji[t.type]} ${label[t.type]}\n💵 ${formatCurrency(t.amount)}\n📁 ${getCategoryLabel(t.category)}\n📝 ${t.description}`,
+    `🗑 <b>¿Eliminar?</b>\n\n${TYPE_EMOJI[t.type]} ${TYPE_LABEL[t.type]}\n💵 ${formatCurrency(t.amount)}\n📁 ${escapeHtml(getCategoryLabel(t.category, customLabels))}\n📝 ${escapeHtml(t.description)}`,
     {
       reply_markup: {
         inline_keyboard: [
@@ -411,12 +459,21 @@ async function handleTransaction(chatId, firebaseUid, text) {
     return;
   }
   if (parsed.error) {
-    await sendMessage(chatId, `❌ ${parsed.error}`);
+    await sendMessage(chatId, `❌ ${escapeHtml(parsed.error)}`);
+    return;
+  }
+  if (parsed.unknownCategory) {
+    // Antes se guardaba igual usando el texto crudo como categoría, lo que dejaba
+    // categorías inexistentes dentro de los datos.
+    await sendMessage(
+      chatId,
+      `❌ No conozco la categoría <b>${escapeHtml(parsed.unknownCategory)}</b>.\n\n` +
+        `Mirá /categorias para ver las disponibles, o creala desde la app.`
+    );
     return;
   }
 
-  const emoji = { income: "💰", expense: "💸", savings: "🏦" };
-  const label = { income: "Ingreso", expense: "Gasto", savings: "Ahorro" };
+  const customLabels = await getCustomCategoryLabels(firebaseUid);
 
   await db
     .collection(PENDING_COLLECTION)
@@ -436,13 +493,13 @@ async function handleTransaction(chatId, firebaseUid, text) {
         source: "telegram",
       },
       usdInfo: parsed.usdInfo || null,
-      expiresAt: new Date(Date.now() + 60000).toISOString(),
+      expiresAt: new Date(Date.now() + PENDING_TTL_MS).toISOString(),
     });
 
-  let msg = `${emoji[parsed.type]} <b>¿Confirmar ${label[parsed.type].toLowerCase()}?</b>\n\n💵 Monto: <b>${formatCurrency(parsed.amount)}</b>\n`;
+  let msg = `${TYPE_EMOJI[parsed.type]} <b>¿Confirmar ${TYPE_LABEL[parsed.type].toLowerCase()}?</b>\n\n💵 Monto: <b>${formatCurrency(parsed.amount)}</b>\n`;
   if (parsed.usdInfo)
     msg += `💲 USD ${parsed.usdInfo.usdAmount} (${parsed.usdInfo.dolarType} @ $${parsed.usdInfo.rate.toLocaleString("es-AR")})\n`;
-  msg += `📁 ${getCategoryLabel(parsed.category)}\n📝 ${parsed.description}`;
+  msg += `📁 ${escapeHtml(getCategoryLabel(parsed.category, customLabels))}\n📝 ${escapeHtml(parsed.description)}`;
 
   await sendMessage(chatId, msg, {
     reply_markup: {
@@ -473,15 +530,14 @@ async function handleCallback(cq) {
   const p = pDoc.data();
 
   if (data === "tx_confirm" && p.action === "create") {
-    await db.collection("transactions").add(p.transaction);
-    await db.collection(PENDING_COLLECTION).doc(String(chatId)).delete();
     const t = p.transaction;
-    const emoji = { income: "💰", expense: "💸", savings: "🏦" };
-    const label = { income: "Ingreso", expense: "Gasto", savings: "Ahorro" };
+    await db.collection("transactions").add(t);
+    await db.collection(PENDING_COLLECTION).doc(String(chatId)).delete();
+    const customLabels = await getCustomCategoryLabels(t.userId);
     await editMessage(
       chatId,
       msgId,
-      `${emoji[t.type]} <b>${label[t.type]} registrado</b>\n\n💵 <b>${formatCurrency(t.amount)}</b>\n📁 ${getCategoryLabel(t.category)}\n📝 ${t.description}\n\n<i>✅ Guardado</i>`
+      `${TYPE_EMOJI[t.type]} <b>${TYPE_LABEL[t.type]} registrado</b>\n\n💵 <b>${formatCurrency(t.amount)}</b>\n📁 ${escapeHtml(getCategoryLabel(t.category, customLabels))}\n📝 ${escapeHtml(t.description)}\n\n<i>✅ Guardado</i>`
     );
     return;
   }
@@ -506,65 +562,52 @@ async function handleCallback(cq) {
   }
 }
 
+/** Enruta un update de Telegram al handler que corresponda. */
+async function routeUpdate(update) {
+  if (update.callback_query) {
+    await handleCallback(update.callback_query);
+    return;
+  }
+  if (!update.message || !update.message.text) return;
+
+  const chatId = update.message.chat.id;
+  const text = update.message.text.trim();
+
+  if (text === "/start" || text === "/help") return handleHelp(chatId);
+  if (text.startsWith("/vincular")) return handleVincular(chatId, text);
+
+  const firebaseUid = await getFirebaseUid(chatId);
+  if (!firebaseUid) {
+    return sendMessage(chatId, "🔒 Cuenta no vinculada.\n<code>/vincular TU_UID</code>");
+  }
+
+  if (text === "/resumen") return handleResumen(chatId, firebaseUid);
+  if (text === "/categorias") return handleCategorias(chatId, firebaseUid);
+  if (text === "/eliminar") return handleEliminar(chatId, firebaseUid);
+
+  return handleTransaction(chatId, firebaseUid, text);
+}
+
 exports.telegramWebhook = functions.region("us-central1").https.onRequest(async (req, res) => {
+  // Se responde siempre 200 para que Telegram no reintente el mismo update en loop.
   try {
     if (req.method !== "POST") {
       res.status(200).send("OK");
       return;
     }
-    const update = req.body;
 
-    if (update.callback_query) {
-      await handleCallback(update.callback_query);
-      res.status(200).send("OK");
-      return;
-    }
-    if (!update.message || !update.message.text) {
-      res.status(200).send("OK");
-      return;
-    }
-
-    const chatId = update.message.chat.id;
-    const text = update.message.text.trim();
-
-    if (text === "/start" || text === "/help") {
-      await handleHelp(chatId);
-      res.status(200).send("OK");
-      return;
-    }
-    if (text.startsWith("/vincular")) {
-      await handleVincular(chatId, text);
-      res.status(200).send("OK");
-      return;
-    }
-
-    const firebaseUid = await getFirebaseUid(chatId);
-    if (!firebaseUid) {
-      await sendMessage(chatId, "🔒 Cuenta no vinculada.\n<code>/vincular TU_UID</code>");
-      res.status(200).send("OK");
-      return;
-    }
-
-    if (text === "/resumen") {
-      await handleResumen(chatId, firebaseUid);
-      res.status(200).send("OK");
-      return;
-    }
-    if (text === "/categorias") {
-      await handleCategorias(chatId, firebaseUid);
-      res.status(200).send("OK");
-      return;
-    }
-    if (text === "/eliminar") {
-      await handleEliminar(chatId, firebaseUid);
-      res.status(200).send("OK");
-      return;
-    }
-
-    await handleTransaction(chatId, firebaseUid, text);
+    await routeUpdate(req.body);
     res.status(200).send("OK");
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error procesando el update de Telegram:", error);
+
+    // Antes el usuario simplemente no recibía nada cuando algo fallaba
+    // (por ejemplo, si faltaba un índice de Firestore).
+    const chatId = req.body?.message?.chat?.id || req.body?.callback_query?.message?.chat?.id;
+    if (chatId) {
+      await sendPlainError(chatId, "❌ Ocurrió un error procesando tu mensaje. Intentá de nuevo.");
+    }
+
     res.status(200).send("OK");
   }
 });

@@ -1,64 +1,52 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog } from "primereact/dialog";
 import { InputNumber } from "primereact/inputnumber";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { db } from "@/firebaseConfig";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
-import { categories as defaultCategories } from "../utils/categories";
+import { doc, setDoc } from "firebase/firestore";
+import { useAuth } from "@/auth/AuthContext";
+import { useTransactions } from "@/context/TransactionsProvider";
+import { getCategoriesForType } from "@/utils/categories";
 
 export const BudgetConfig = ({ visible, onHide }) => {
-  const [budgets, setBudgets] = useState({});
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  // budgets ya llega del provider en tiempo real: no hace falta releer el doc al abrir.
+  const { budgets: savedBudgets, customCategories } = useTransactions();
+
+  const [draft, setDraft] = useState({});
+  const [saving, setSaving] = useState(false);
   const toast = useRef(null);
 
-  const auth = getAuth();
-  const user = auth.currentUser;
-
-  // Cargar presupuestos existentes
+  // Al abrir el diálogo se parte de lo guardado; al cerrar se descartan los cambios.
   useEffect(() => {
-    const loadBudgets = async () => {
-      if (!user || !visible) return;
-      try {
-        const budgetRef = doc(db, "budgets", user.uid);
-        const budgetDoc = await getDoc(budgetRef);
+    if (visible) setDraft(savedBudgets);
+  }, [visible, savedBudgets]);
 
-        if (budgetDoc.exists()) {
-          setBudgets(budgetDoc.data().categories || {});
-        }
-      } catch (error) {
-        console.error("Error cargando presupuestos:", error);
-      }
-    };
-    loadBudgets();
-  }, [user, visible]);
+  // Ahora incluye las categorías personalizadas: antes sólo se podían presupuestar
+  // las categorías por defecto.
+  const expenseCategories = getCategoriesForType("expense", customCategories);
 
   const handleChange = (categoryValue, amount) => {
-    setBudgets((prev) => ({
-      ...prev,
-      [categoryValue]: amount || 0,
-    }));
+    setDraft((prev) => ({ ...prev, [categoryValue]: amount || 0 }));
   };
 
   const handleSave = async () => {
-    if (!user) return;
-    setLoading(true);
+    if (!user || saving) return;
+    setSaving(true);
 
     try {
-      const budgetRef = doc(db, "budgets", user.uid);
-      // Filtrar categorías con presupuesto > 0
       const filteredBudgets = Object.fromEntries(
-        Object.entries(budgets).filter(([_, value]) => value > 0)
+        Object.entries(draft).filter(([, value]) => value > 0)
       );
 
-      await setDoc(budgetRef, {
+      await setDoc(doc(db, "budgets", user.uid), {
         userId: user.uid,
         categories: filteredBudgets,
         updatedAt: new Date().toISOString(),
       });
 
-      toast.current.show({
+      toast.current?.show({
         severity: "success",
         summary: "Éxito",
         detail: "Presupuesto guardado correctamente.",
@@ -67,18 +55,16 @@ export const BudgetConfig = ({ visible, onHide }) => {
       onHide();
     } catch (error) {
       console.error("Error guardando presupuesto:", error);
-      toast.current.show({
+      toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "No se pudo guardar el presupuesto.",
         life: 3000,
       });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
-
-  const expenseCategories = defaultCategories.expense;
 
   return (
     <>
@@ -86,7 +72,7 @@ export const BudgetConfig = ({ visible, onHide }) => {
       <Dialog
         header={
           <div className="flex items-center gap-2">
-            <i className="pi pi-calculator text-purple-400"></i>
+            <i className="pi pi-calculator text-brand"></i>
             <span>Configurar presupuesto mensual</span>
           </div>
         }
@@ -102,6 +88,7 @@ export const BudgetConfig = ({ visible, onHide }) => {
               className="p-button-outlined p-button-sm"
               severity="secondary"
               onClick={onHide}
+              disabled={saving}
             />
             <Button
               label="Guardar"
@@ -109,12 +96,12 @@ export const BudgetConfig = ({ visible, onHide }) => {
               className="p-button-sm"
               severity="success"
               onClick={handleSave}
-              loading={loading}
+              loading={saving}
             />
           </div>
         }
       >
-        <p className="text-[#94a3b8] text-sm mb-4">
+        <p className="text-muted text-sm mb-4">
           Definí un límite mensual para las categorías que querés controlar. Dejá en 0 las que no
           necesitan límite.
         </p>
@@ -123,24 +110,25 @@ export const BudgetConfig = ({ visible, onHide }) => {
           {expenseCategories.map((cat) => (
             <div
               key={cat.value}
-              className="flex items-center gap-3 rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3"
+              className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3"
             >
               <div className="flex items-center gap-2 flex-1">
                 <div
                   className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: cat.color }}
                 />
-                <span className="text-sm text-white">{cat.label}</span>
+                <span className="text-sm text-strong">{cat.label}</span>
               </div>
               <div className="w-28 sm:w-44 flex-shrink-0">
                 <InputNumber
-                  value={budgets[cat.value] || null}
+                  value={draft[cat.value] || null}
                   onValueChange={(e) => handleChange(cat.value, e.value)}
                   mode="currency"
                   currency="ARS"
                   locale="es-AR"
                   placeholder="$ 0"
                   inputClassName="text-right text-sm"
+                  aria-label={`Presupuesto de ${cat.label}`}
                 />
               </div>
             </div>

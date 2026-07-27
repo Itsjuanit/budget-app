@@ -36,14 +36,14 @@ export const Signup = () => {
       <Toast ref={toast} />
 
       <div className="w-full max-w-md">
-        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/80 p-8">
+        <div className="rounded-xl border border-border bg-surface p-8">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <i className="pi pi-wallet text-4xl text-purple-400"></i>
+              <i className="pi pi-wallet text-4xl text-brand"></i>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-3">PAGATODO</h1>
-            <p className="text-[#94a3b8] text-sm leading-relaxed">
+            <h1 className="text-3xl font-bold text-strong mb-3">PAGATODO</h1>
+            <p className="text-muted text-sm leading-relaxed">
               Da el primer paso hacia una vida financiera en orden. Gestioná tus gastos y planificá
               tus ahorros de forma sencilla, segura y efectiva.
             </p>
@@ -61,10 +61,10 @@ export const Signup = () => {
 
           {/* Link a login */}
           <div className="mt-6 text-center text-sm">
-            <span className="text-[#94a3b8]">¿Ya tenés una cuenta? </span>
+            <span className="text-muted">¿Ya tenés una cuenta? </span>
             <Link
               to="/login"
-              className="text-purple-400 hover:text-purple-300 font-medium transition-colors duration-200"
+              className="text-brand hover:text-brand-hover font-medium transition-colors duration-200"
             >
               Iniciá sesión aquí
             </Link>

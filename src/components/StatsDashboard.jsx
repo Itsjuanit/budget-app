@@ -1,209 +1,194 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Chart } from "primereact/chart";
 import { ProgressBar } from "primereact/progressbar";
-import { formatCurrency } from "../utils/format";
-import { db } from "@/firebaseConfig";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { categories as defaultCategories } from "../utils/categories";
+import { db } from "@/firebaseConfig";
+import { useAuth } from "@/auth/AuthContext";
+import { useTransactions } from "@/context/TransactionsProvider";
+import { formatCurrency } from "@/utils/format";
+import { getCategoryLabel, getCategoryColor } from "@/utils/categories";
+import { getLastNMonths, monthKeyToDate, getCurrentMonth } from "@/utils/months";
+import { useChartTheme, withAlpha } from "@/hooks/useChartTheme";
 
-/**
- * Genera un array de los últimos N meses en formato "YYYY-MM".
- */
-const getLastNMonths = (n) => {
-  const months = [];
-  const now = new Date();
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-  return months;
-};
+const MONTHS_TO_SHOW = 12;
 
 const formatMonthLabel = (monthYear) => {
-  const [year, month] = monthYear.split("-");
-  const date = new Date(parseInt(year), parseInt(month) - 1);
-  const label = format(date, "MMM yy", { locale: es });
+  const label = format(monthKeyToDate(monthYear), "MMM yy", { locale: es });
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
-const getCategoryLabel = (value) => {
-  const allCategories = [
-    ...defaultCategories.income,
-    ...defaultCategories.savings,
-    ...defaultCategories.expense,
-  ];
-  return allCategories.find((c) => c.value === value)?.label || value;
-};
-
-const getCategoryColor = (value) => {
-  const cat = defaultCategories.expense.find((c) => c.value === value);
-  return cat?.color || "#94a3b8";
-};
-
-// Opciones comunes para tooltips
-const commonTooltip = {
-  backgroundColor: "#1e1e3a",
-  titleColor: "#e2e8f0",
-  bodyColor: "#e2e8f0",
-  borderColor: "#2a2a4a",
-  borderWidth: 1,
-  padding: 12,
-  cornerRadius: 8,
-};
-
 export const StatsDashboard = () => {
+  const { user } = useAuth();
+  const { customCategories } = useTransactions();
+  // Los colores de los gráficos salen del tema activo (canvas no hereda CSS).
+  const chartTheme = useChartTheme();
+
   const [monthlyData, setMonthlyData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+    const months = getLastNMonths(MONTHS_TO_SHOW);
+
     const loadData = async () => {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const last12 = getLastNMonths(12);
-
+      setLoading(true);
+      setError(null);
       try {
-        const transactionsRef = query(
-          collection(db, "transactions"),
-          where("userId", "==", user.uid),
-          where("monthYear", ">=", last12[0]),
-          where("monthYear", "<=", last12[last12.length - 1])
+        const snapshot = await getDocs(
+          query(
+            collection(db, "transactions"),
+            where("userId", "==", user.uid),
+            where("monthYear", ">=", months[0]),
+            where("monthYear", "<=", months[months.length - 1])
+          )
+        );
+        if (cancelled) return;
+
+        const byMonth = Object.fromEntries(
+          months.map((m) => [m, { income: 0, expenses: 0, savings: 0, transactions: [] }])
         );
 
-        const snapshot = await getDocs(transactionsRef);
+        snapshot.docs.forEach((docSnap) => {
+          const t = docSnap.data();
+          const bucket = byMonth[t.monthYear];
+          if (!bucket) return;
 
-        // Agrupar por mes
-        const byMonth = {};
-        last12.forEach((m) => {
-          byMonth[m] = { income: 0, expenses: 0, savings: 0, transactions: [] };
+          bucket.transactions.push(t);
+          const amount = Number(t.amount) || 0;
+          if (t.type === "income") bucket.income += amount;
+          else if (t.type === "expense") bucket.expenses += amount;
+          else if (t.type === "savings") bucket.savings += amount;
         });
 
-        snapshot.docs.forEach((doc) => {
-          const t = doc.data();
-          if (!byMonth[t.monthYear]) return;
-
-          byMonth[t.monthYear].transactions.push(t);
-
-          if (t.type === "income") byMonth[t.monthYear].income += t.amount;
-          else if (t.type === "expense") byMonth[t.monthYear].expenses += t.amount;
-          else if (t.type === "savings") byMonth[t.monthYear].savings += t.amount;
-        });
-
-        setMonthlyData({ months: last12, byMonth });
-      } catch (error) {
-        console.error("Error cargando estadísticas:", error);
+        setMonthlyData({ months, byMonth });
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Error cargando estadísticas:", err);
+        // Antes este error dejaba la pantalla en "no hay datos" sin explicar nada.
+        setError("No se pudieron cargar las estadísticas. Revisá tu conexión e intentá de nuevo.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadData();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const stats = useMemo(() => {
+    if (!monthlyData) return null;
+    const { months, byMonth } = monthlyData;
+
+    const currentMonth = getCurrentMonth();
+    const currentData = byMonth[currentMonth] ?? {
+      income: 0,
+      expenses: 0,
+      savings: 0,
+      transactions: [],
+    };
+
+    // El promedio excluye el mes en curso: compararlo contra un promedio que se
+    // incluye a sí mismo hacía que el indicador siempre tendiera al 100%.
+    const previousActiveMonths = months.filter(
+      (m) =>
+        m !== currentMonth &&
+        (byMonth[m].income > 0 || byMonth[m].expenses > 0 || byMonth[m].savings > 0)
+    );
+    const avgExpenses = previousActiveMonths.length
+      ? previousActiveMonths.reduce((sum, m) => sum + byMonth[m].expenses, 0) /
+        previousActiveMonths.length
+      : 0;
+
+    const expenseByCategory = {};
+    months.forEach((m) => {
+      byMonth[m].transactions
+        .filter((t) => t.type === "expense")
+        .forEach((t) => {
+          expenseByCategory[t.category] =
+            (expenseByCategory[t.category] || 0) + (Number(t.amount) || 0);
+        });
+    });
+
+    const top5Categories = Object.entries(expenseByCategory)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([category, amount]) => ({
+        category,
+        label: getCategoryLabel(category, customCategories),
+        color: getCategoryColor(category, customCategories),
+        amount,
+      }));
+
+    return {
+      months,
+      byMonth,
+      labels: months.map(formatMonthLabel),
+      currentData,
+      avgExpenses,
+      hasAverage: previousActiveMonths.length > 0,
+      top5Categories,
+      topCategoryMax: top5Categories[0]?.amount || 1,
+      total12Income: months.reduce((s, m) => s + byMonth[m].income, 0),
+      total12Expenses: months.reduce((s, m) => s + byMonth[m].expenses, 0),
+      total12Savings: months.reduce((s, m) => s + byMonth[m].savings, 0),
+    };
+  }, [monthlyData, customCategories]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <i className="pi pi-spin pi-spinner text-[#94a3b8] text-3xl" />
+        <i className="pi pi-spin pi-spinner text-muted text-3xl" />
       </div>
     );
   }
 
-  if (!monthlyData) {
+  if (error) {
     return (
-      <p className="text-[#94a3b8] text-sm text-center py-12">
+      <div className="rounded-xl border border-ring-expense bg-tint-expense p-6 text-center">
+        <i className="pi pi-exclamation-triangle text-expense text-2xl mb-3" />
+        <p className="text-body text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <p className="text-muted text-sm text-center py-12">
         No hay datos para mostrar estadísticas.
       </p>
     );
   }
 
-  const { months, byMonth } = monthlyData;
-  const labels = months.map(formatMonthLabel);
+  const { months, byMonth, labels, currentData, avgExpenses, hasAverage } = stats;
 
-  // --- Datos derivados ---
-  const currentMonth = months[months.length - 1];
-  const currentData = byMonth[currentMonth];
+  const { palette } = chartTheme;
 
-  // Meses con actividad (para promedios)
-  const activeMonths = months.filter(
-    (m) => byMonth[m].income > 0 || byMonth[m].expenses > 0 || byMonth[m].savings > 0
-  );
-  const activeCount = Math.max(activeMonths.length, 1);
-
-  const avgExpenses = activeMonths.reduce((sum, m) => sum + byMonth[m].expenses, 0) / activeCount;
-
-  // Top 5 categorías de gasto (acumulado últimos 12 meses)
-  const expenseByCategory = {};
-  months.forEach((m) => {
-    byMonth[m].transactions
-      .filter((t) => t.type === "expense")
-      .forEach((t) => {
-        expenseByCategory[t.category] = (expenseByCategory[t.category] || 0) + t.amount;
-      });
+  const lineDataset = (label, key, color) => ({
+    label,
+    data: months.map((m) => byMonth[m][key]),
+    borderColor: color,
+    backgroundColor: withAlpha(color, 0.1),
+    fill: true,
+    tension: 0.3,
+    pointRadius: 4,
+    pointHoverRadius: 6,
+    pointBackgroundColor: color,
+    borderWidth: 2,
   });
 
-  const top5Categories = Object.entries(expenseByCategory)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([category, amount]) => ({
-      category,
-      label: getCategoryLabel(category),
-      color: getCategoryColor(category),
-      amount,
-    }));
-
-  const topCategoryMax = top5Categories.length > 0 ? top5Categories[0].amount : 1;
-
-  // Totales para doughnut
-  const total12Income = months.reduce((s, m) => s + byMonth[m].income, 0);
-  const total12Expenses = months.reduce((s, m) => s + byMonth[m].expenses, 0);
-  const total12Savings = months.reduce((s, m) => s + byMonth[m].savings, 0);
-
-  // ============================================================
-  // 1. EVOLUCIÓN MENSUAL (líneas)
-  // ============================================================
   const evolutionData = {
     labels,
     datasets: [
-      {
-        label: "Ingresos",
-        data: months.map((m) => byMonth[m].income),
-        borderColor: "#34d399",
-        backgroundColor: "rgba(52, 211, 153, 0.1)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        pointBackgroundColor: "#34d399",
-        borderWidth: 2,
-      },
-      {
-        label: "Gastos",
-        data: months.map((m) => byMonth[m].expenses),
-        borderColor: "#f87171",
-        backgroundColor: "rgba(248, 113, 113, 0.1)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        pointBackgroundColor: "#f87171",
-        borderWidth: 2,
-      },
-      {
-        label: "Ahorros",
-        data: months.map((m) => byMonth[m].savings),
-        borderColor: "#60a5fa",
-        backgroundColor: "rgba(96, 165, 250, 0.1)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        pointBackgroundColor: "#60a5fa",
-        borderWidth: 2,
-      },
+      lineDataset("Ingresos", "income", palette.income),
+      lineDataset("Gastos", "expenses", palette.expense),
+      lineDataset("Ahorros", "savings", palette.savings),
     ],
   };
 
@@ -212,51 +197,22 @@ export const StatsDashboard = () => {
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
     plugins: {
-      legend: {
-        display: true,
-        position: "top",
-        labels: {
-          color: "#e2e8f0",
-          padding: 20,
-          usePointStyle: true,
-          pointStyleWidth: 10,
-          font: { size: 12 },
-        },
-      },
+      legend: chartTheme.legend,
       tooltip: {
-        ...commonTooltip,
-        callbacks: {
-          label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`,
-        },
+        ...chartTheme.tooltip,
+        callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}` },
       },
     },
-    scales: {
-      x: {
-        grid: { color: "rgba(42, 42, 74, 0.5)" },
-        ticks: { color: "#94a3b8", font: { size: 11 } },
-      },
-      y: {
-        grid: { color: "rgba(42, 42, 74, 0.5)" },
-        ticks: {
-          color: "#94a3b8",
-          font: { size: 11 },
-          callback: (v) => formatCurrency(v),
-        },
-        beginAtZero: true,
-      },
-    },
+    scales: chartTheme.scales,
   };
 
-  // ============================================================
-  // 2. BARRAS COMPARATIVAS
-  // ============================================================
   const barsData = {
     labels,
     datasets: [
       {
         label: "Ingresos",
         data: months.map((m) => byMonth[m].income),
-        backgroundColor: "#34d399",
+        backgroundColor: palette.income,
         borderRadius: 4,
         barPercentage: 0.7,
         categoryPercentage: 0.8,
@@ -264,7 +220,7 @@ export const StatsDashboard = () => {
       {
         label: "Gastos",
         data: months.map((m) => byMonth[m].expenses),
-        backgroundColor: "#f87171",
+        backgroundColor: palette.expense,
         borderRadius: 4,
         barPercentage: 0.7,
         categoryPercentage: 0.8,
@@ -276,52 +232,23 @@ export const StatsDashboard = () => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        display: true,
-        position: "top",
-        labels: {
-          color: "#e2e8f0",
-          padding: 20,
-          usePointStyle: true,
-          pointStyleWidth: 10,
-          font: { size: 12 },
-        },
-      },
+      legend: chartTheme.legend,
       tooltip: {
-        ...commonTooltip,
-        callbacks: {
-          label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`,
-        },
+        ...chartTheme.tooltip,
+        callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}` },
       },
     },
-    scales: {
-      x: {
-        grid: { color: "rgba(42, 42, 74, 0.5)" },
-        ticks: { color: "#94a3b8", font: { size: 11 } },
-      },
-      y: {
-        grid: { color: "rgba(42, 42, 74, 0.5)" },
-        ticks: {
-          color: "#94a3b8",
-          font: { size: 11 },
-          callback: (v) => formatCurrency(v),
-        },
-        beginAtZero: true,
-      },
-    },
+    scales: chartTheme.scales,
   };
 
-  // ============================================================
-  // 3. DOUGHNUT DISTRIBUCIÓN
-  // ============================================================
   const distributionData = {
     labels: ["Ingresos", "Gastos", "Ahorros"],
     datasets: [
       {
-        data: [total12Income, total12Expenses, total12Savings],
-        backgroundColor: ["#34d399", "#f87171", "#60a5fa"],
-        borderColor: "transparent",
-        hoverBorderColor: "#ffffff33",
+        data: [stats.total12Income, stats.total12Expenses, stats.total12Savings],
+        backgroundColor: [palette.income, palette.expense, palette.savings],
+        borderColor: chartTheme.surface,
+        hoverBorderColor: chartTheme.text,
         hoverBorderWidth: 2,
       },
     ],
@@ -331,22 +258,16 @@ export const StatsDashboard = () => {
     cutout: "65%",
     plugins: {
       legend: {
-        display: true,
+        ...chartTheme.legend,
         position: "bottom",
-        labels: {
-          color: "#e2e8f0",
-          padding: 16,
-          usePointStyle: true,
-          pointStyleWidth: 10,
-          font: { size: 12 },
-        },
+        labels: { ...chartTheme.legend.labels, padding: 16 },
       },
       tooltip: {
-        ...commonTooltip,
+        ...chartTheme.tooltip,
         callbacks: {
           label: (ctx) => {
             const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-            const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+            const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : "0.0";
             return ` ${ctx.label}: ${formatCurrency(ctx.parsed)} (${pct}%)`;
           },
         },
@@ -354,66 +275,55 @@ export const StatsDashboard = () => {
     },
   };
 
-  // ============================================================
-  // 4. PROMEDIO VS MES ACTUAL
-  // ============================================================
   const currentVsAvgPercentage =
     avgExpenses > 0 ? Math.round((currentData.expenses / avgExpenses) * 100) : 0;
   const isOverAvg = currentData.expenses > avgExpenses;
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-2xl font-semibold text-white">Estadísticas</h2>
-
-      {/* Fila 1: Evolución + Barras */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Evolución mensual */}
-        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">Evolución mensual</h3>
+        <div className="rounded-xl border border-border bg-surface-raised p-5">
+          <h3 className="text-lg font-semibold mb-4 text-strong">Evolución mensual</h3>
           <div style={{ height: "300px" }}>
             <Chart type="line" data={evolutionData} options={evolutionOptions} />
           </div>
         </div>
 
-        {/* Barras comparativas */}
-        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">Ingresos vs Gastos</h3>
+        <div className="rounded-xl border border-border bg-surface-raised p-5">
+          <h3 className="text-lg font-semibold mb-4 text-strong">Ingresos vs Gastos</h3>
           <div style={{ height: "300px" }}>
             <Chart type="bar" data={barsData} options={barsOptions} />
           </div>
         </div>
       </div>
 
-      {/* Fila 2: Doughnut + Top 5 + Promedio */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Distribución */}
-        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">Distribución (12 meses)</h3>
+        <div className="rounded-xl border border-border bg-surface-raised p-5">
+          <h3 className="text-lg font-semibold mb-4 text-strong">Distribución (12 meses)</h3>
           <Chart type="doughnut" data={distributionData} options={distributionOptions} />
         </div>
 
-        {/* Top 5 categorías */}
-        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">Top 5 categorías de gasto</h3>
-          {top5Categories.length > 0 ? (
+        <div className="rounded-xl border border-border bg-surface-raised p-5">
+          <h3 className="text-lg font-semibold mb-4 text-strong">Top 5 categorías de gasto</h3>
+          {stats.top5Categories.length > 0 ? (
             <div className="flex flex-col gap-4">
-              {top5Categories.map((cat, index) => (
+              {stats.top5Categories.map((cat, index) => (
                 <div key={cat.category}>
                   <div className="flex justify-between items-center mb-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#64748b] w-4">{index + 1}</span>
+                      <span className="text-xs font-bold text-subtle w-4">{index + 1}</span>
                       <div
                         className="w-2.5 h-2.5 rounded-full"
                         style={{ backgroundColor: cat.color }}
                       />
-                      <span className="text-sm text-white">{cat.label}</span>
+                      <span className="text-sm text-strong">{cat.label}</span>
                     </div>
-                    <span className="text-sm font-bold text-red-400">
+                    <span className="text-sm font-bold text-expense">
                       {formatCurrency(cat.amount)}
                     </span>
                   </div>
                   <ProgressBar
-                    value={Math.round((cat.amount / topCategoryMax) * 100)}
+                    value={Math.round((cat.amount / stats.topCategoryMax) * 100)}
                     showValue={false}
                     style={{ height: "5px" }}
                     color={cat.color}
@@ -422,60 +332,56 @@ export const StatsDashboard = () => {
               ))}
             </div>
           ) : (
-            <p className="text-[#94a3b8] text-sm text-center py-8">No hay gastos registrados.</p>
+            <p className="text-muted text-sm text-center py-8">No hay gastos registrados.</p>
           )}
         </div>
 
-        {/* Promedio vs mes actual */}
-        <div className="rounded-xl border border-[#2a2a4a] bg-[#1e1e3a]/50 p-5">
-          <h3 className="text-lg font-semibold mb-4 text-white">Gasto actual vs promedio</h3>
-          <div className="flex flex-col items-center justify-center py-4 gap-6">
-            {/* Indicador circular simulado */}
-            <div className="relative">
+        <div className="rounded-xl border border-border bg-surface-raised p-5">
+          <h3 className="text-lg font-semibold mb-4 text-strong">Gasto actual vs promedio</h3>
+          {hasAverage ? (
+            <div className="flex flex-col items-center justify-center py-4 gap-6">
               <div
                 className={`w-32 h-32 rounded-full border-8 flex items-center justify-center ${
-                  isOverAvg ? "border-red-500/40" : "border-emerald-500/40"
+                  isOverAvg ? "border-ring-expense" : "border-ring-income"
                 }`}
               >
                 <div className="text-center">
-                  <p
-                    className={`text-2xl font-bold ${
-                      isOverAvg ? "text-red-400" : "text-emerald-400"
-                    }`}
-                  >
+                  <p className={`text-2xl font-bold ${isOverAvg ? "text-expense" : "text-income"}`}>
                     {currentVsAvgPercentage}%
                   </p>
-                  <p className="text-[#64748b] text-xs">del promedio</p>
+                  <p className="text-subtle text-xs">del promedio</p>
+                </div>
+              </div>
+
+              <div className="w-full flex flex-col gap-3">
+                <div className="flex justify-between items-center rounded-lg border border-border bg-surface px-4 py-3">
+                  <span className="text-sm text-muted">Mes actual</span>
+                  <span
+                    className={`text-sm font-bold ${isOverAvg ? "text-expense" : "text-income"}`}
+                  >
+                    {formatCurrency(currentData.expenses)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center rounded-lg border border-border bg-surface px-4 py-3">
+                  <span className="text-sm text-muted">Promedio de meses anteriores</span>
+                  <span className="text-sm font-bold text-body">{formatCurrency(avgExpenses)}</span>
+                </div>
+                <div className="flex justify-between items-center rounded-lg border border-border bg-surface px-4 py-3">
+                  <span className="text-sm text-muted">Diferencia</span>
+                  <span
+                    className={`text-sm font-bold ${isOverAvg ? "text-expense" : "text-income"}`}
+                  >
+                    {isOverAvg ? "+" : "-"}
+                    {formatCurrency(Math.abs(currentData.expenses - avgExpenses))}
+                  </span>
                 </div>
               </div>
             </div>
-
-            <div className="w-full flex flex-col gap-3">
-              <div className="flex justify-between items-center rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3">
-                <span className="text-sm text-[#94a3b8]">Mes actual</span>
-                <span
-                  className={`text-sm font-bold ${isOverAvg ? "text-red-400" : "text-emerald-400"}`}
-                >
-                  {formatCurrency(currentData.expenses)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3">
-                <span className="text-sm text-[#94a3b8]">Promedio mensual</span>
-                <span className="text-sm font-bold text-[#e2e8f0]">
-                  {formatCurrency(avgExpenses)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center rounded-lg border border-[#2a2a4a] bg-[#1e1e3a] px-4 py-3">
-                <span className="text-sm text-[#94a3b8]">Diferencia</span>
-                <span
-                  className={`text-sm font-bold ${isOverAvg ? "text-red-400" : "text-emerald-400"}`}
-                >
-                  {isOverAvg ? "+" : "-"}
-                  {formatCurrency(Math.abs(currentData.expenses - avgExpenses))}
-                </span>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <p className="text-muted text-sm text-center py-8">
+              Todavía no hay meses anteriores para comparar.
+            </p>
+          )}
         </div>
       </div>
     </div>

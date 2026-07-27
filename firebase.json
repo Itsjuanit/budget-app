@@ -2,6 +2,7 @@
   "functions": {
     "source": "functions",
     "runtime": "nodejs20",
-    "region": "us-central1"
+    "region": "us-central1",
+    "predeploy": ["node scripts/sync-categories.js"]
   }
 }
