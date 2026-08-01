@@ -65,8 +65,10 @@
   --surface: #ffffff;
   --surface-raised: #ffffff;
   --surface-hover: #0f172a08;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
+  /* El borde tiene que despegarse del fondo, no sólo de la tarjeta: con #e2e8f0
+     quedaba a 1,13:1 de #f1f5f9 y las tarjetas se veían sin reborde. */
+  --border: #cbd5e1;
+  --border-strong: #94a3b8;
 
   --text-strong: #0f172a;
   --text: #1e293b;
