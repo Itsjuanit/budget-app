@@ -46,7 +46,7 @@ const groupByCategoryGroup = (transactions, customCategories) => {
  * valores puramente derivados, alcanza con useMemo (menos renders y sin riesgo
  * de que el estado quede desfasado de las transacciones).
  */
-export const useMonthlyTotals = (transactions, customCategories) =>
+export const useMonthlyTotals = (transactions, customCategories, projectsTotal = 0) =>
   useMemo(() => {
     const expenses = transactions.filter((t) => t.type === "expense");
     const income = transactions.filter((t) => t.type === "income");
@@ -57,13 +57,18 @@ export const useMonthlyTotals = (transactions, customCategories) =>
     const totalSavings = sumAmounts(savings);
 
     return {
+      // Los gastos por categoría siguen contando sólo transacciones, para que
+      // el total coincida con lo que muestra el gráfico. El aporte de los
+      // proyectos se expone aparte y sólo se descuenta del disponible.
       totalExpenses,
       totalIncome,
       totalSavings,
-      available: totalIncome - totalExpenses - totalSavings,
+      projectsTotal,
+      totalSpent: totalExpenses + projectsTotal,
+      available: totalIncome - totalExpenses - totalSavings - projectsTotal,
       savingsPercentage: totalIncome > 0 ? Math.round((totalSavings / totalIncome) * 100) : 0,
       expensesByCategory: groupByCategory(expenses, "expense", customCategories),
       expensesByGroup: groupByCategoryGroup(expenses, customCategories),
       savingsByCategory: groupByCategory(savings, "savings", customCategories),
     };
-  }, [transactions, customCategories]);
+  }, [transactions, customCategories, projectsTotal]);

@@ -67,14 +67,17 @@ src/
 ├── auth/
 │   └── AuthContext.jsx          # Proveedor de autenticación (Firebase Auth)
 ├── components/
+│   ├── dashboard/               # Piezas del panel (proyección, tarjetas, gráfico, tabla)
+│   ├── projects/                # Proyectos de gasto (viajes, mudanzas)
+│   ├── recurring/               # Gastos fijos que se repiten cada mes
 │   ├── BudgetConfig.jsx         # Dialog de configuración de presupuesto
 │   ├── BudgetProgress.jsx       # Barras de progreso del presupuesto
 │   ├── ConfirmDialog.jsx        # Dialog de confirmación reutilizable
 │   ├── Dashboard.jsx            # Panel principal del mes actual
 │   ├── EditTransactionForm.jsx  # Formulario de edición de transacción
 │   ├── Login.jsx                # Pantalla de login (Google Auth)
+│   ├── TelegramLink.jsx         # Código de un solo uso para vincular el bot
 │   ├── MonthlyReports.jsx       # Reportes por mes + generación PDF
-│   ├── MonthProjection.jsx      # Proyección de gastos a fin de mes
 │   ├── Signup.jsx               # Pantalla de registro (Google Auth)
 │   ├── StatsDashboard.jsx       # Dashboard de estadísticas (4 gráficos)
 │   └── TransactionForm.jsx      # Formulario de nueva transacción
@@ -93,7 +96,6 @@ src/
 ├── firebaseConfig.js            # Configuración de Firebase
 ├── index.css                    # Tema dark mode + overrides PrimeReact
 ├── main.jsx                     # Entry point
-└── swHandler.js                 # Service Worker para PWA
 ```
 
 ---

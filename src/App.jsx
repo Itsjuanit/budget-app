@@ -1,8 +1,9 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import { PrimeReactProvider } from "primereact/api";
 import { TabView, TabPanel } from "primereact/tabview";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { Button } from "primereact/button";
 import { Dashboard } from "./components/Dashboard";
 import { TransactionForm } from "./components/TransactionForm";
 import { MonthlyReports } from "./components/MonthlyReports";
@@ -14,10 +15,14 @@ import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { configurePrimeReactLocale } from "./utils/primeReactLocale";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { ThemeToggle } from "./theme/ThemeToggle";
+import { TelegramLink } from "./components/TelegramLink";
 
-// Las estadísticas sólo se descargan al abrir esa pestaña.
+// Estadísticas y Proyectos sólo se descargan al abrir esas pestañas.
 const StatsDashboard = lazy(() =>
   import("./components/StatsDashboard").then((m) => ({ default: m.StatsDashboard }))
+);
+const ProjectsTab = lazy(() =>
+  import("./components/projects/ProjectsTab").then((m) => ({ default: m.ProjectsTab }))
 );
 
 configurePrimeReactLocale();
@@ -76,6 +81,11 @@ function App() {
                             <TabPanel header="Reporte mensual">
                               <MonthlyReports />
                             </TabPanel>
+                            <TabPanel header="Proyectos">
+                              <Suspense fallback={<TabFallback />}>
+                                <ProjectsTab />
+                              </Suspense>
+                            </TabPanel>
                             <TabPanel header="Estadísticas">
                               <div className="flex flex-col gap-6">
                                 <h2 className="text-2xl font-semibold text-strong">Estadísticas</h2>
@@ -102,16 +112,30 @@ function App() {
 
 const AuthActions = () => {
   const { isAuthenticated, logout } = useAuth();
+  const [showTelegram, setShowTelegram] = useState(false);
+
   if (!isAuthenticated) return null;
 
   return (
-    <button
-      className="btn-plain ml-2 text-sm text-expense hover:opacity-80 transition-opacity duration-200"
-      onClick={logout}
-    >
-      <i className="pi pi-sign-out mr-2"></i>
-      Cerrar sesión
-    </button>
+    <>
+      <Button
+        icon="pi pi-send"
+        className="p-button-rounded p-button-text p-button-sm text-muted"
+        tooltip="Conectar Telegram"
+        tooltipOptions={{ position: "bottom" }}
+        aria-label="Conectar Telegram"
+        onClick={() => setShowTelegram(true)}
+      />
+      <button
+        className="btn-plain ml-2 text-sm text-expense hover:opacity-80 transition-opacity duration-200"
+        onClick={logout}
+      >
+        <i className="pi pi-sign-out mr-2"></i>
+        Cerrar sesión
+      </button>
+
+      <TelegramLink visible={showTelegram} onHide={() => setShowTelegram(false)} />
+    </>
   );
 };
 

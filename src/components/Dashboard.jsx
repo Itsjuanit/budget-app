@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
+import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Wallet, TrendingUp, PiggyBank, Landmark } from "lucide-react";
 import { useTransactions } from "@/context/TransactionsProvider";
 import { useMonthlyTotals } from "@/hooks/useMonthlyTotals";
 import { useBudgetAlerts } from "@/hooks/useBudgetAlerts";
+import { useMonthProjection } from "@/hooks/useMonthProjection";
 import { formatCurrency } from "@/utils/format";
 import { EditTransactionForm } from "./EditTransactionForm";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -14,6 +16,10 @@ import { SummaryCards, CARD_TONES, balanceTone } from "./dashboard/SummaryCards"
 import { SavingsBreakdown } from "./dashboard/SavingsBreakdown";
 import { ExpensesChart } from "./dashboard/ExpensesChart";
 import { TransactionsPanel } from "./dashboard/TransactionsPanel";
+import { ProjectsImpact } from "./projects/ProjectsImpact";
+import { MonthProjection } from "./dashboard/MonthProjection";
+import { RecurringManager } from "./recurring/RecurringManager";
+import { LoadRecurringDialog } from "./recurring/LoadRecurringDialog";
 
 export const Dashboard = () => {
   const {
@@ -27,14 +33,20 @@ export const Dashboard = () => {
     goToNextMonth,
     goToCurrentMonth,
     deleteTransaction,
+    monthProjects,
+    monthProjectsTotal,
   } = useTransactions();
 
-  const totals = useMonthlyTotals(transactions, customCategories);
+  const totals = useMonthlyTotals(transactions, customCategories, monthProjectsTotal);
+  // Sólo devuelve algo en el mes en curso: en uno cerrado o futuro no aplica.
+  const projection = useMonthProjection(selectedMonth, totals.totalSpent, totals.available);
   const toast = useRef(null);
 
   const [transactionToEdit, setTransactionToEdit] = useState(null);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [showRecurringManager, setShowRecurringManager] = useState(false);
+  const [showLoadRecurring, setShowLoadRecurring] = useState(false);
 
   useBudgetAlerts({
     transactions,
@@ -102,17 +114,40 @@ export const Dashboard = () => {
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
         <h1 className="text-2xl font-bold text-strong">Análisis del gasto</h1>
-        <MonthNavigator
-          month={selectedMonth}
-          canGoNext={canGoToNextMonth}
-          isCurrentMonth={isCurrentMonth}
-          onPrevious={goToPreviousMonth}
-          onNext={goToNextMonth}
-          onToday={goToCurrentMonth}
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            label="Cargar fijos"
+            icon="pi pi-replay"
+            className="p-button-sm p-button-outlined"
+            severity="secondary"
+            tooltip="Cargar los gastos que se repiten todos los meses"
+            tooltipOptions={{ position: "top" }}
+            onClick={() => setShowLoadRecurring(true)}
+          />
+          <Button
+            icon="pi pi-cog"
+            className="p-button-rounded p-button-text p-button-sm"
+            tooltip="Gestionar gastos fijos"
+            tooltipOptions={{ position: "top" }}
+            aria-label="Gestionar gastos fijos"
+            onClick={() => setShowRecurringManager(true)}
+          />
+          <MonthNavigator
+            month={selectedMonth}
+            canGoNext={canGoToNextMonth}
+            isCurrentMonth={isCurrentMonth}
+            onPrevious={goToPreviousMonth}
+            onNext={goToNextMonth}
+            onToday={goToCurrentMonth}
+          />
+        </div>
       </div>
 
       <SummaryCards cards={summaryCards} />
+
+      <ProjectsImpact projects={monthProjects} total={totals.projectsTotal} />
+
+      <MonthProjection projection={projection} />
 
       <BudgetProgress transactions={transactions} />
 
@@ -157,6 +192,17 @@ export const Dashboard = () => {
         onHide={() => setTransactionToDelete(null)}
         onConfirm={handleDelete}
         message={`¿Estás seguro de que deseas eliminar la transacción "${transactionToDelete?.description}"?`}
+      />
+
+      <RecurringManager
+        visible={showRecurringManager}
+        onHide={() => setShowRecurringManager(false)}
+      />
+
+      <LoadRecurringDialog
+        visible={showLoadRecurring}
+        month={selectedMonth}
+        onHide={() => setShowLoadRecurring(false)}
       />
     </div>
   );

@@ -11,13 +11,20 @@ import {
   updateDoc,
   setDoc,
   getDocs,
+  writeBatch,
   limit,
 } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 import { useAuth } from "@/auth/AuthContext";
 import { EMPTY_CUSTOM_CATEGORIES } from "@/utils/categories";
 import { CATEGORY_PALETTE } from "@/utils/colors";
-import { getCurrentMonth, generateMonthRange, addMonths, compareMonths } from "@/utils/months";
+import {
+  getCurrentMonth,
+  generateMonthRange,
+  addMonths,
+  compareMonths,
+  monthKeyToDate,
+} from "@/utils/months";
 
 const TransactionsContext = createContext(null);
 
@@ -39,6 +46,9 @@ export const TransactionsProvider = ({ children }) => {
   const [customCategories, setCustomCategories] = useState(EMPTY_CUSTOM_CATEGORIES);
   const [budgets, setBudgets] = useState({});
   const [archivedCategories, setArchivedCategories] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [projectExpenses, setProjectExpenses] = useState([]);
+  const [recurringTemplates, setRecurringTemplates] = useState([]);
 
   // --- Transacciones del mes seleccionado (tiempo real) ---
   useEffect(() => {
@@ -159,6 +169,57 @@ export const TransactionsProvider = ({ children }) => {
     return () => unsubscribe();
   }, [uid]);
 
+  // --- Proyectos de gasto y sus gastos (tiempo real) ---
+  //
+  // Los gastos de un proyecto NO son transacciones: viven aparte porque
+  // pertenecen sólo al proyecto y porque el mes que impacta es el asignado al
+  // proyecto, no la fecha de cada gasto (un pasaje comprado en junio para el
+  // viaje de agosto tiene que pesar en agosto). Así tampoco se cuentan dos veces.
+  //
+  // Se escuchan completos, sin filtrar por mes: el Dashboard necesita el total
+  // del mes elegido y la pestaña de Proyectos los necesita todos, y en una app
+  // personal el volumen es de decenas de documentos.
+  useEffect(() => {
+    if (!uid) {
+      setProjects([]);
+      setProjectExpenses([]);
+      return;
+    }
+
+    const unsubProjects = onSnapshot(
+      query(collection(db, "expenseProjects"), where("userId", "==", uid)),
+      (snapshot) => setProjects(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (error) => console.error("Error cargando proyectos:", error)
+    );
+
+    const unsubExpenses = onSnapshot(
+      query(collection(db, "projectExpenses"), where("userId", "==", uid)),
+      (snapshot) => setProjectExpenses(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (error) => console.error("Error cargando gastos de proyectos:", error)
+    );
+
+    return () => {
+      unsubProjects();
+      unsubExpenses();
+    };
+  }, [uid]);
+
+  // --- Plantillas de gastos fijos (tiempo real) ---
+  useEffect(() => {
+    if (!uid) {
+      setRecurringTemplates([]);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      query(collection(db, "recurringTemplates"), where("userId", "==", uid)),
+      (snapshot) => setRecurringTemplates(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (error) => console.error("Error cargando gastos fijos:", error)
+    );
+
+    return () => unsubscribe();
+  }, [uid]);
+
   // --- Presupuestos (tiempo real) ---
   useEffect(() => {
     if (!uid) {
@@ -175,6 +236,57 @@ export const TransactionsProvider = ({ children }) => {
 
     return () => unsubscribe();
   }, [uid]);
+
+  // --- Proyectos con su total gastado ---
+  // El total sale de sumar sus gastos, así el checkbox de impacto sólo decide
+  // si ese total entra o no al balance: nunca hay un total guardado que se
+  // pueda desincronizar de los gastos reales.
+  const projectsWithTotals = useMemo(() => {
+    const spentByProject = new Map();
+    projectExpenses.forEach((e) => {
+      spentByProject.set(
+        e.projectId,
+        (spentByProject.get(e.projectId) || 0) + (Number(e.amount) || 0)
+      );
+    });
+
+    return projects
+      .map((project) => {
+        const spent = spentByProject.get(project.id) || 0;
+        const planned = Number(project.plannedAmount) || 0;
+        return {
+          ...project,
+          spent,
+          planned,
+          hasPlan: planned > 0,
+          remaining: planned - spent,
+          overBudget: planned > 0 && spent > planned,
+          progress: planned > 0 ? Math.round((spent / planned) * 100) : 0,
+        };
+      })
+      .sort(
+        (a, b) => compareMonths(b.monthYear, a.monthYear) || a.name.localeCompare(b.name, "es")
+      );
+  }, [projects, projectExpenses]);
+
+  /** Total de los proyectos de un mes que están marcados para impactar el balance. */
+  const getProjectsTotalForMonth = useCallback(
+    (month) =>
+      projectsWithTotals
+        .filter((p) => p.monthYear === month && p.includeInBalance)
+        .reduce((sum, p) => sum + p.spent, 0),
+    [projectsWithTotals]
+  );
+
+  const monthProjects = useMemo(
+    () => projectsWithTotals.filter((p) => p.monthYear === selectedMonth),
+    [projectsWithTotals, selectedMonth]
+  );
+
+  const monthProjectsTotal = useMemo(
+    () => getProjectsTotalForMonth(selectedMonth),
+    [getProjectsTotalForMonth, selectedMonth]
+  );
 
   // --- Meses disponibles en el selector ---
   const availableMonths = useMemo(() => {
@@ -230,6 +342,191 @@ export const TransactionsProvider = ({ children }) => {
     async (category) => {
       if (!uid) throw new Error("No hay usuario autenticado.");
       return addDoc(collection(db, "customCategories"), { ...category, userId: uid });
+    },
+    [uid]
+  );
+
+  // --- Proyectos: CRUD ---
+  const addProject = useCallback(
+    async ({ name, monthYear, plannedAmount, includeInBalance }) => {
+      if (!uid) throw new Error("No hay usuario autenticado.");
+      return addDoc(collection(db, "expenseProjects"), {
+        userId: uid,
+        name: name.trim(),
+        monthYear,
+        plannedAmount: plannedAmount || null,
+        includeInBalance: Boolean(includeInBalance),
+        createdAt: new Date().toISOString(),
+      });
+    },
+    [uid]
+  );
+
+  const updateProject = useCallback(async (projectId, changes) => {
+    await updateDoc(doc(db, "expenseProjects", projectId), changes);
+  }, []);
+
+  /** Atajo del checkbox: al cambiarlo, el balance del mes se recalcula solo. */
+  const setProjectIncludeInBalance = useCallback(
+    async (projectId, include) =>
+      updateDoc(doc(db, "expenseProjects", projectId), { includeInBalance: Boolean(include) }),
+    []
+  );
+
+  /** Borra el proyecto y todos sus gastos, para no dejar documentos huérfanos. */
+  const deleteProject = useCallback(
+    async (projectId) => {
+      const snapshot = await getDocs(
+        query(
+          collection(db, "projectExpenses"),
+          where("userId", "==", uid),
+          where("projectId", "==", projectId)
+        )
+      );
+
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((d) => batch.delete(d.ref));
+      batch.delete(doc(db, "expenseProjects", projectId));
+      await batch.commit();
+    },
+    [uid]
+  );
+
+  const addProjectExpense = useCallback(
+    async (projectId, { description, amount, date }) => {
+      if (!uid) throw new Error("No hay usuario autenticado.");
+      return addDoc(collection(db, "projectExpenses"), {
+        userId: uid,
+        projectId,
+        description: description.trim(),
+        amount,
+        date: (date || new Date()).toISOString(),
+        createdAt: new Date().toISOString(),
+      });
+    },
+    [uid]
+  );
+
+  const updateProjectExpense = useCallback(async (expenseId, changes) => {
+    await updateDoc(doc(db, "projectExpenses", expenseId), changes);
+  }, []);
+
+  const deleteProjectExpense = useCallback(async (expenseId) => {
+    await deleteDoc(doc(db, "projectExpenses", expenseId));
+  }, []);
+
+  /** Gastos de un proyecto, del más reciente al más viejo. */
+  const getProjectExpenses = useCallback(
+    (projectId) =>
+      projectExpenses
+        .filter((e) => e.projectId === projectId)
+        .sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [projectExpenses]
+  );
+
+  // --- Gastos fijos ---
+  const addRecurringTemplate = useCallback(
+    async (template) => {
+      if (!uid) throw new Error("No hay usuario autenticado.");
+      return addDoc(collection(db, "recurringTemplates"), {
+        userId: uid,
+        ...template,
+        createdAt: new Date().toISOString(),
+      });
+    },
+    [uid]
+  );
+
+  const updateRecurringTemplate = useCallback(async (templateId, changes) => {
+    await updateDoc(doc(db, "recurringTemplates", templateId), changes);
+  }, []);
+
+  const deleteRecurringTemplate = useCallback(async (templateId) => {
+    await deleteDoc(doc(db, "recurringTemplates", templateId));
+  }, []);
+
+  /**
+   * Arma la propuesta de fijos para un mes: qué plantillas faltan cargar y con
+   * qué monto sugerido.
+   *
+   * El monto sale del último movimiento real de esa categoría (mirando hasta 6
+   * meses atrás) y no del guardado en la plantilla, porque el alquiler y las
+   * suscripciones cambian seguido. La plantilla sólo aporta el valor inicial.
+   *
+   * Las que ya se cargaron este mes se marcan para no duplicarlas.
+   */
+  const buildRecurringPlan = useCallback(
+    async (month) => {
+      if (!uid || recurringTemplates.length === 0) return [];
+
+      const activos = recurringTemplates.filter((t) => !t.paused);
+      if (activos.length === 0) return [];
+
+      // Un único rango de meses en vez de una consulta por plantilla.
+      const desde = addMonths(month, -6);
+      const snapshot = await getDocs(
+        query(
+          collection(db, "transactions"),
+          where("userId", "==", uid),
+          where("monthYear", ">=", desde),
+          where("monthYear", "<=", month)
+        )
+      );
+
+      const historial = snapshot.docs.map((d) => d.data());
+
+      return activos
+        .map((template) => {
+          const delMes = historial.filter(
+            (t) => t.monthYear === month && t.category === template.category
+          );
+
+          // El más reciente antes de este mes marca el monto sugerido.
+          const anteriores = historial
+            .filter((t) => t.monthYear !== month && t.category === template.category)
+            .sort((a, b) => compareMonths(b.monthYear, a.monthYear));
+
+          const ultimoMonto = anteriores[0]?.amount;
+
+          return {
+            ...template,
+            alreadyLoaded: delMes.length > 0,
+            suggestedAmount: Number(ultimoMonto) || Number(template.defaultAmount) || null,
+            lastSeenMonth: anteriores[0]?.monthYear || null,
+          };
+        })
+        .sort((a, b) => a.description.localeCompare(b.description, "es"));
+    },
+    [uid, recurringTemplates]
+  );
+
+  /** Crea de una sola vez las transacciones elegidas en el diálogo de fijos. */
+  const createRecurringTransactions = useCallback(
+    async (month, items) => {
+      if (!uid) throw new Error("No hay usuario autenticado.");
+      if (items.length === 0) return 0;
+
+      const batch = writeBatch(db);
+      // Se fechan el día 1 del mes destino: son cargos del mes, no de hoy.
+      const date = monthKeyToDate(month).toISOString();
+
+      items.forEach((item) => {
+        batch.set(doc(collection(db, "transactions")), {
+          userId: uid,
+          type: "expense",
+          amount: item.amount,
+          category: item.category,
+          description: item.description,
+          date,
+          monthYear: month,
+          installments: 0,
+          installmentsRemaining: 0,
+          source: "recurring",
+        });
+      });
+
+      await batch.commit();
+      return items.length;
     },
     [uid]
   );
@@ -364,6 +661,24 @@ export const TransactionsProvider = ({ children }) => {
       unarchiveCategory,
       deleteCustomCategory,
       countCategoryUsage,
+      recurringTemplates,
+      addRecurringTemplate,
+      updateRecurringTemplate,
+      deleteRecurringTemplate,
+      buildRecurringPlan,
+      createRecurringTransactions,
+      projects: projectsWithTotals,
+      monthProjects,
+      monthProjectsTotal,
+      getProjectsTotalForMonth,
+      getProjectExpenses,
+      addProject,
+      updateProject,
+      setProjectIncludeInBalance,
+      deleteProject,
+      addProjectExpense,
+      updateProjectExpense,
+      deleteProjectExpense,
     }),
     [
       transactions,
@@ -387,6 +702,24 @@ export const TransactionsProvider = ({ children }) => {
       unarchiveCategory,
       deleteCustomCategory,
       countCategoryUsage,
+      recurringTemplates,
+      addRecurringTemplate,
+      updateRecurringTemplate,
+      deleteRecurringTemplate,
+      buildRecurringPlan,
+      createRecurringTransactions,
+      projectsWithTotals,
+      monthProjects,
+      monthProjectsTotal,
+      getProjectsTotalForMonth,
+      getProjectExpenses,
+      addProject,
+      updateProject,
+      setProjectIncludeInBalance,
+      deleteProject,
+      addProjectExpense,
+      updateProjectExpense,
+      deleteProjectExpense,
     ]
   );
 

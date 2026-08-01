@@ -18,6 +18,7 @@ import { monthKeyToDate, getCurrentMonth } from "@/utils/months";
 import { EditTransactionForm } from "./EditTransactionForm";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SummaryCards, CARD_TONES, balanceTone } from "./dashboard/SummaryCards";
+import { ProjectsImpact } from "./projects/ProjectsImpact";
 
 const formatDate = (value) => {
   const date = new Date(value);
@@ -32,9 +33,11 @@ export const MonthlyReports = () => {
     selectedMonth,
     setSelectedMonth,
     deleteTransaction,
+    monthProjects,
+    monthProjectsTotal,
   } = useTransactions();
 
-  const totals = useMonthlyTotals(transactions, customCategories);
+  const totals = useMonthlyTotals(transactions, customCategories, monthProjectsTotal);
   const toast = useRef(null);
 
   const [transactionToEdit, setTransactionToEdit] = useState(null);
@@ -191,6 +194,8 @@ export const MonthlyReports = () => {
       </div>
 
       <SummaryCards cards={summaryCards} />
+
+      <ProjectsImpact projects={monthProjects} total={totals.projectsTotal} />
 
       <div className="rounded-xl border border-border bg-surface-raised p-5">
         <h3 className="text-lg font-semibold mb-4 text-strong">Detalle de transacciones</h3>

@@ -8,6 +8,9 @@ const db = admin.firestore();
 const categoryData = require("./categories.json");
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
+// Token compartido con Telegram para verificar que los updates vienen de ellos.
+// Se define en functions/.env y se registra al llamar a setupWebhook.
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const AUTHORIZED_USERS_COLLECTION = "telegramUsers";
 const PENDING_COLLECTION = "telegramPending";
@@ -305,23 +308,69 @@ async function parseTransaction(text, firebaseUid) {
   };
 }
 
+/**
+ * Vincula un chat de Telegram con una cuenta, canjeando un código de un solo uso.
+ *
+ * Antes esto aceptaba directamente un UID de Firebase, que NO es un dato secreto
+ * (viaja al cliente, aparece en logs). Cualquiera que encontrara el bot podía
+ * escribir el UID de otra persona y quedarse con acceso total a sus finanzas.
+ *
+ * Ahora el código lo genera la app, dura 10 minutos, sirve una sola vez y se
+ * borra al canjearse.
+ */
 async function handleVincular(chatId, text) {
-  const parts = text.split(/\s+/);
-  if (parts.length < 2) {
+  const parts = text.trim().split(/\s+/);
+  const code = (parts[1] || "").trim();
+
+  if (!/^\d{6}$/.test(code)) {
     await sendMessage(
       chatId,
-      "🔗 <b>Vincular cuenta</b>\n\nEnviá tu Firebase UID:\n<code>/vincular TU_FIREBASE_UID</code>"
+      "🔗 <b>Vincular cuenta</b>\n\n" +
+        "1. Entrá a PAGATODO desde la web\n" +
+        "2. Tocá <b>Conectar Telegram</b>\n" +
+        "3. Mandame el código de 6 dígitos:\n\n" +
+        "<code>/vincular 123456</code>\n\n" +
+        "<i>El código vence a los 10 minutos.</i>"
     );
     return;
   }
-  await db.collection(AUTHORIZED_USERS_COLLECTION).doc(String(chatId)).set({
-    firebaseUid: parts[1],
+
+  const snap = await db
+    .collection("userSettings")
+    .where("telegramLinkCode", "==", code)
+    .limit(1)
+    .get();
+
+  if (snap.empty) {
+    await sendMessage(chatId, "❌ Código inválido. Generá uno nuevo desde la app.");
+    return;
+  }
+
+  const settings = snap.docs[0];
+  const expiresAt = settings.data().telegramLinkCodeExpiresAt;
+
+  if (!expiresAt || new Date(expiresAt) < new Date()) {
+    // Se limpia el código vencido para que no quede dando vueltas.
+    await settings.ref.update({ telegramLinkCode: null, telegramLinkCodeExpiresAt: null });
+    await sendMessage(chatId, "⏰ Ese código venció. Generá uno nuevo desde la app.");
+    return;
+  }
+
+  const firebaseUid = settings.id;
+
+  // El código se quema en el mismo paso en que se vincula.
+  const batch = db.batch();
+  batch.set(db.collection(AUTHORIZED_USERS_COLLECTION).doc(String(chatId)), {
+    firebaseUid,
     chatId,
     linkedAt: new Date().toISOString(),
   });
+  batch.update(settings.ref, { telegramLinkCode: null, telegramLinkCodeExpiresAt: null });
+  await batch.commit();
+
   await sendMessage(
     chatId,
-    `✅ <b>¡Cuenta vinculada!</b>\n\nFirebase UID: <code>${escapeHtml(parts[1])}</code>\nEscribí /help para ver los comandos.`
+    "✅ <b>¡Cuenta vinculada!</b>\n\nYa podés cargar gastos desde acá.\nEscribí /help para ver los comandos."
   );
 }
 
@@ -607,7 +656,12 @@ async function routeUpdate(update) {
 
   const firebaseUid = await getFirebaseUid(chatId);
   if (!firebaseUid) {
-    return sendMessage(chatId, "🔒 Cuenta no vinculada.\n<code>/vincular TU_UID</code>");
+    return sendMessage(
+      chatId,
+      "🔒 <b>Cuenta no vinculada</b>\n\n" +
+        "Entrá a PAGATODO, tocá <b>Conectar Telegram</b> y mandame el código:\n" +
+        "<code>/vincular 123456</code>"
+    );
   }
 
   if (text === "/resumen") return handleResumen(chatId, firebaseUid);
@@ -623,6 +677,21 @@ exports.telegramWebhook = functions.region("us-central1").https.onRequest(async 
     if (req.method !== "POST") {
       res.status(200).send("OK");
       return;
+    }
+
+    // El endpoint es público: sin este chequeo cualquiera que descubra la URL
+    // puede POSTear un update falso haciéndose pasar por otro chat.
+    // Telegram manda el token en cada request si se configuró en setWebhook.
+    if (WEBHOOK_SECRET) {
+      if (req.get("X-Telegram-Bot-Api-Secret-Token") !== WEBHOOK_SECRET) {
+        console.warn("Update rechazado: secret token inválido.");
+        res.status(403).send("Forbidden");
+        return;
+      }
+    } else {
+      console.warn(
+        "WEBHOOK_SECRET no está configurado: el webhook acepta requests de cualquier origen."
+      );
     }
 
     await routeUpdate(req.body);
@@ -641,13 +710,37 @@ exports.telegramWebhook = functions.region("us-central1").https.onRequest(async 
   }
 });
 
+/**
+ * Registra el webhook en Telegram. Se corre a mano, una vez por deploy.
+ *
+ * Antes era un endpoint público: cualquiera podía llamarlo. Ahora exige el mismo
+ * secreto que después viaja en cada update, así que sólo lo puede ejecutar quien
+ * tenga acceso a la config del proyecto.
+ *   curl "https://.../setupWebhook?secret=EL_WEBHOOK_SECRET"
+ */
 exports.setupWebhook = functions.region("us-central1").https.onRequest(async (req, res) => {
+  if (!WEBHOOK_SECRET) {
+    res.status(500).json({ error: "Falta configurar WEBHOOK_SECRET en functions/.env" });
+    return;
+  }
+  if (req.query.secret !== WEBHOOK_SECRET) {
+    res.status(403).json({ error: "Secreto inválido." });
+    return;
+  }
+
   const pid = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
   const url = `https://us-central1-${pid}.cloudfunctions.net/telegramWebhook`;
+
   const r = await fetch(`${TELEGRAM_API}/setWebhook`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({
+      url,
+      // A partir de acá Telegram manda este token en cada update.
+      secret_token: WEBHOOK_SECRET,
+      drop_pending_updates: true,
+    }),
   });
+
   res.json({ url, result: await r.json() });
 });
