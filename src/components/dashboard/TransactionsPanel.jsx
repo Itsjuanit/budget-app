@@ -6,10 +6,8 @@ import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
-import { format } from "date-fns";
-import { formatCurrency } from "@/utils/format";
+import { formatCurrency, formatDate, getTypeConfig } from "@/utils/format";
 import { getCategoryLabel } from "@/utils/categories";
-import { getTypeConfig } from "@/utils/transactionDisplay";
 
 const TYPE_FILTER_OPTIONS = [
   { label: "Todos", value: null },
@@ -33,11 +31,6 @@ const useIsMobile = (breakpoint = 768) => {
   }, [breakpoint]);
 
   return isMobile;
-};
-
-const formatDate = (value) => {
-  const date = new Date(value);
-  return isNaN(date.getTime()) ? "—" : format(date, "dd/MM/yyyy");
 };
 
 /** Listado de transacciones del mes, con filtros. Tabla en desktop, cards en mobile. */

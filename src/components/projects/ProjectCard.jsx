@@ -1,15 +1,8 @@
 import { Button } from "primereact/button";
 import { Checkbox } from "primereact/checkbox";
 import { ProgressBar } from "primereact/progressbar";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { formatCurrency } from "@/utils/format";
-import { monthKeyToDate } from "@/utils/months";
-
-const monthLabel = (monthYear) => {
-  const label = format(monthKeyToDate(monthYear), "MMMM yyyy", { locale: es });
-  return label.charAt(0).toUpperCase() + label.slice(1);
-};
+import { formatMonth } from "@/utils/months";
 
 const progressColor = (project) => {
   if (project.overBudget) return "var(--expense)";
@@ -31,7 +24,7 @@ export const ProjectCard = ({ project, onOpen, onEdit, onDelete, onToggleBalance
           <p className="text-strong font-semibold truncate group-hover:text-brand transition-colors">
             {project.name}
           </p>
-          <p className="text-muted text-xs mt-0.5">{monthLabel(project.monthYear)}</p>
+          <p className="text-muted text-xs mt-0.5">{formatMonth(project.monthYear)}</p>
         </button>
 
         <div className="flex gap-1 flex-shrink-0">
@@ -102,7 +95,7 @@ export const ProjectCard = ({ project, onOpen, onEdit, onDelete, onToggleBalance
           disabled={busy}
         />
         <span className="text-xs text-muted">
-          Impacta en el balance de {monthLabel(project.monthYear)}
+          Impacta en el balance de {formatMonth(project.monthYear)}
         </span>
       </label>
     </div>

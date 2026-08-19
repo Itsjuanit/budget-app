@@ -6,22 +6,10 @@ import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { ProgressBar } from "primereact/progressbar";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { useTransactions } from "@/context/TransactionsProvider";
-import { formatCurrency } from "@/utils/format";
-import { monthKeyToDate } from "@/utils/months";
+import { formatCurrency, formatDate } from "@/utils/format";
+import { formatMonth } from "@/utils/months";
 import { ConfirmDialog } from "../ConfirmDialog";
-
-const formatDate = (value) => {
-  const date = new Date(value);
-  return isNaN(date.getTime()) ? "—" : format(date, "dd/MM/yyyy");
-};
-
-const monthLabel = (monthYear) => {
-  const label = format(monthKeyToDate(monthYear), "MMMM yyyy", { locale: es });
-  return label.charAt(0).toUpperCase() + label.slice(1);
-};
 
 export const ProjectDetail = ({ project, onHide }) => {
   const { getProjectExpenses, addProjectExpense, deleteProjectExpense } = useTransactions();
@@ -92,7 +80,7 @@ export const ProjectDetail = ({ project, onHide }) => {
               <span className="truncate">{project.name}</span>
             </div>
             <p className="text-xs text-muted font-normal mt-0.5">
-              {monthLabel(project.monthYear)}
+              {formatMonth(project.monthYear)}
               {project.includeInBalance
                 ? " · impacta en el balance"
                 : " · no impacta en el balance"}

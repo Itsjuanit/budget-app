@@ -1,6 +1,26 @@
 import categoryData from "../../shared/categories.json";
 import { assignColorsToCategories, CATEGORY_PALETTE } from "./colors";
-import { toSlug } from "./slug";
+
+// Rango Unicode de marcas diacríticas combinantes (los acentos que quedan sueltos
+// al normalizar con NFD). Se define por código para no dejar caracteres invisibles
+// dentro de una expresión regular.
+const COMBINING_MARKS = new RegExp(
+  `[${String.fromCharCode(0x0300)}-${String.fromCharCode(0x036f)}]`,
+  "g"
+);
+
+/**
+ * Convierte un nombre de categoría en un identificador estable.
+ * "Acción Física" → "accion-fisica"
+ */
+export const toSlug = (text) =>
+  text
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(COMBINING_MARKS, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 /**
  * Categorías por defecto, con un color fijo asignado a cada una.
@@ -81,7 +101,13 @@ export const getAllCategories = (customCategories = EMPTY_CUSTOM_CATEGORIES, arc
     .sort(byLabel);
 };
 
-/** Busca la definición de una categoría por su identificador, esté archivada o no. */
+/**
+ * Busca la definición de una categoría por su identificador, esté archivada o no.
+ *
+ * ponytail: arma la lista y la recorre en cada llamada, y se llama una vez por
+ * celda al pintar las tablas. Techo: ~30 categorías por ~50 filas visibles, que
+ * ni se nota. Si crece, la salida es un Map memoizado por customCategories.
+ */
 export const findCategory = (value, customCategories = EMPTY_CUSTOM_CATEGORIES) =>
   allCategoriesRaw(customCategories).find((c) => c.value === value) || null;
 

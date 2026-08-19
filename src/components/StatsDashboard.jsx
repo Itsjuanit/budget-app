@@ -2,22 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Chart } from "primereact/chart";
 import { ProgressBar } from "primereact/progressbar";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { db } from "@/firebaseConfig";
 import { useAuth } from "@/auth/AuthContext";
 import { useTransactions } from "@/context/TransactionsProvider";
 import { formatCurrency } from "@/utils/format";
 import { getCategoryLabel, getCategoryColor } from "@/utils/categories";
-import { getLastNMonths, monthKeyToDate, getCurrentMonth } from "@/utils/months";
+import { formatMonth, getCurrentMonth, getLastNMonths } from "@/utils/months";
 import { useChartTheme, withAlpha } from "@/hooks/useChartTheme";
 
 const MONTHS_TO_SHOW = 12;
-
-const formatMonthLabel = (monthYear) => {
-  const label = format(monthKeyToDate(monthYear), "MMM yy", { locale: es });
-  return label.charAt(0).toUpperCase() + label.slice(1);
-};
 
 export const StatsDashboard = () => {
   const { user } = useAuth();
@@ -129,7 +122,7 @@ export const StatsDashboard = () => {
     return {
       months,
       byMonth,
-      labels: months.map(formatMonthLabel),
+      labels: months.map((m) => formatMonth(m, "MMM yy")),
       currentData,
       avgExpenses,
       hasAverage: previousActiveMonths.length > 0,

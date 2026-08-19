@@ -11,19 +11,13 @@ import { es } from "date-fns/locale";
 import { Wallet, TrendingDown, PiggyBank, Landmark } from "lucide-react";
 import { useTransactions } from "@/context/TransactionsProvider";
 import { useMonthlyTotals } from "@/hooks/useMonthlyTotals";
-import { formatCurrency } from "@/utils/format";
+import { formatCurrency, formatDate, getTypeConfig } from "@/utils/format";
 import { getCategoryLabel } from "@/utils/categories";
-import { getTypeConfig } from "@/utils/transactionDisplay";
-import { monthKeyToDate, getCurrentMonth } from "@/utils/months";
+import { getCurrentMonth, monthKeyToDate } from "@/utils/months";
 import { EditTransactionForm } from "./EditTransactionForm";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SummaryCards, CARD_TONES, balanceTone } from "./dashboard/SummaryCards";
 import { ProjectsImpact } from "./projects/ProjectsImpact";
-
-const formatDate = (value) => {
-  const date = new Date(value);
-  return isNaN(date.getTime()) ? "—" : format(date, "dd/MM/yyyy");
-};
 
 export const MonthlyReports = () => {
   const {

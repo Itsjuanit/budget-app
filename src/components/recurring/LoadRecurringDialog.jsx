@@ -5,17 +5,10 @@ import { Checkbox } from "primereact/checkbox";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { Message } from "primereact/message";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { useTransactions } from "@/context/TransactionsProvider";
 import { formatCurrency } from "@/utils/format";
 import { getCategoryLabel } from "@/utils/categories";
-import { monthKeyToDate } from "@/utils/months";
-
-const monthLabel = (monthYear) => {
-  const label = format(monthKeyToDate(monthYear), "MMMM", { locale: es });
-  return label.charAt(0).toUpperCase() + label.slice(1);
-};
+import { formatMonth } from "@/utils/months";
 
 /**
  * Revisión previa a cargar los fijos del mes.
@@ -108,7 +101,7 @@ export const LoadRecurringDialog = ({ visible, month, onHide }) => {
         header={
           <div className="flex items-center gap-2">
             <i className="pi pi-replay text-brand"></i>
-            <span>Cargar los fijos de {monthLabel(month)}</span>
+            <span>Cargar los fijos de {formatMonth(month)}</span>
           </div>
         }
         visible={visible}
@@ -196,7 +189,7 @@ export const LoadRecurringDialog = ({ visible, month, onHide }) => {
                       {row.alreadyLoaded && " · ya cargado este mes"}
                       {!row.alreadyLoaded &&
                         row.lastSeenMonth &&
-                        ` · último: ${monthLabel(row.lastSeenMonth)}`}
+                        ` · último: ${formatMonth(row.lastSeenMonth)}`}
                     </p>
                   </label>
 

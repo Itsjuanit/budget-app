@@ -2,22 +2,15 @@ import { useMemo, useRef, useState } from "react";
 import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { useTransactions } from "@/context/TransactionsProvider";
 import { formatCurrency } from "@/utils/format";
-import { monthKeyToDate } from "@/utils/months";
+import { formatMonth } from "@/utils/months";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { ProjectCard } from "./ProjectCard";
 import { ProjectForm } from "./ProjectForm";
 import { ProjectDetail } from "./ProjectDetail";
 
 const ALL_MONTHS = "__todos__";
-
-const monthLabel = (monthYear) => {
-  const label = format(monthKeyToDate(monthYear), "MMMM yyyy", { locale: es });
-  return label.charAt(0).toUpperCase() + label.slice(1);
-};
 
 export const ProjectsTab = () => {
   const { projects, addProject, updateProject, deleteProject, setProjectIncludeInBalance } =
@@ -37,7 +30,7 @@ export const ProjectsTab = () => {
     const months = [...new Set(projects.map((p) => p.monthYear))].sort().reverse();
     return [
       { label: "Todos los meses", value: ALL_MONTHS },
-      ...months.map((m) => ({ label: monthLabel(m), value: m })),
+      ...months.map((m) => ({ label: formatMonth(m), value: m })),
     ];
   }, [projects]);
 
@@ -74,7 +67,7 @@ export const ProjectsTab = () => {
         "success",
         include ? "Incluido en el balance" : "Excluido del balance",
         include
-          ? `${formatCurrency(project.spent)} se descuentan de ${monthLabel(project.monthYear)}.`
+          ? `${formatCurrency(project.spent)} se descuentan de ${formatMonth(project.monthYear)}.`
           : `«${project.name}» ya no afecta ningún balance.`
       );
     } catch (error) {

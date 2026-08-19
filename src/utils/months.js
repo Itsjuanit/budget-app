@@ -1,3 +1,6 @@
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
 /**
  * Utilidades para meses en formato "YYYY-MM".
  *
@@ -48,6 +51,20 @@ export const generateMonthRange = (startMonth, endMonth) => {
 export const monthKeyToDate = (monthKey) => {
   const [year, month] = monthKey.split("-").map(Number);
   return new Date(year, month - 1, 1);
+};
+
+/**
+ * Nombre legible de un mes, en castellano y con la inicial en mayúscula.
+ *
+ *   formatMonth("2026-08")            → "Agosto 2026"
+ *   formatMonth("2026-08", "MMMM")    → "Agosto"
+ *   formatMonth("2026-08", "MMM yy")  → "Ago 26"
+ *
+ * Estaba duplicada en cinco componentes con las mismas tres líneas.
+ */
+export const formatMonth = (monthKey, pattern = "MMMM yyyy") => {
+  const label = format(monthKeyToDate(monthKey), pattern, { locale: es });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
 /** Últimos N meses en formato "YYYY-MM", terminando en el mes actual. */

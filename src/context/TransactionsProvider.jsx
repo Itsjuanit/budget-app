@@ -20,10 +20,10 @@ import { EMPTY_CUSTOM_CATEGORIES } from "@/utils/categories";
 import { CATEGORY_PALETTE } from "@/utils/colors";
 import {
   getCurrentMonth,
-  generateMonthRange,
+  monthKeyToDate,
   addMonths,
   compareMonths,
-  monthKeyToDate,
+  generateMonthRange,
 } from "@/utils/months";
 
 const TransactionsContext = createContext(null);
@@ -177,8 +177,12 @@ export const TransactionsProvider = ({ children }) => {
   // viaje de agosto tiene que pesar en agosto). Así tampoco se cuentan dos veces.
   //
   // Se escuchan completos, sin filtrar por mes: el Dashboard necesita el total
-  // del mes elegido y la pestaña de Proyectos los necesita todos, y en una app
-  // personal el volumen es de decenas de documentos.
+  // del mes elegido y la pestaña de Proyectos los necesita todos.
+  //
+  // ponytail: trae TODOS los gastos de proyecto sin paginar. Techo: unos cientos
+  // de documentos, que es de sobra para uso personal. Si algún día molesta, la
+  // salida es guardar el total en el doc del proyecto y actualizarlo por
+  // transacción, o escuchar sólo los proyectos del mes visible.
   useEffect(() => {
     if (!uid) {
       setProjects([]);

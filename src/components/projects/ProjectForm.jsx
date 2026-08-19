@@ -8,7 +8,7 @@ import { Button } from "primereact/button";
 import { Message } from "primereact/message";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { addMonths, getCurrentMonth, monthKeyToDate, generateMonthRange } from "@/utils/months";
+import { getCurrentMonth, monthKeyToDate, addMonths, generateMonthRange } from "@/utils/months";
 
 /**
  * Meses elegibles: dos años para atrás y uno para adelante desde hoy.

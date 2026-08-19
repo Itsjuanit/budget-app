@@ -13,10 +13,10 @@ import {
   getCategoriesForType,
   getGroupOptions,
   pickColorForNewCategory,
+  toSlug,
 } from "@/utils/categories";
 import { fetchDolarRate, convertUsdToArs, dolarTypeOptions } from "@/utils/dolarService";
 import { toMonthKey } from "@/utils/months";
-import { toSlug } from "@/utils/slug";
 import { CategoryManager } from "./CategoryManager";
 
 const TYPE_OPTIONS = [
